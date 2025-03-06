@@ -1,0 +1,18 @@
+.
+├── assets
+│   ├── js
+│   ├── no-image.png
+│   ├── socasatop.css
+│   └── socasatop.js
+├── functions.php
+├── inc
+│   ├── ajax.php
+│   ├── custom
+│   └── filter
+├── package.json
+├── package-lock.json
+├── structure.txt
+├── style.css
+└── webpack.config.js
+
+5 directories, 10 files
