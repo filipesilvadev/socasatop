@@ -1,0 +1,17 @@
+/*
+Theme Name: Só Casa Top
+Theme URI: https://digitalestudio.com.br
+Description: Só Casa Top
+Theme Author: Filipe Oliveira
+Author URI: http://digitalestudio.com.br/trabalhos
+Template: hello-elementor
+Version: 1.0.0
+Text Domain: hello-elementor
+License: GNU General Public License or later
+License URI: http://www.gnu.org/licenses/gpl-2.0.html
+Tags: light, dark, two-columns, right-sidebar, responsive-layout, accessibility-ready
+*/
+
+.w-\[250px\].h-\[250px\].mx-auto.mb-8 {
+  transform: scale(.25)!important;
+}
