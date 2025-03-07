@@ -54,12 +54,7 @@ add_shortcode('image_immobile', 'display_image_immobile');
 
 function display_link_immobile()
 {
-    if (is_user_logged_in()) {
-        $link = get_the_permalink();
-    } else {
-        $link = home_url('/imovel/?id=' . get_the_ID());
-    }
-    return $link;
+    return get_the_permalink();
 }
 add_shortcode('link_immobile', 'display_link_immobile');
 
