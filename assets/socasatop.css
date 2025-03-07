@@ -1,0 +1,681 @@
+/* General Typography */
+html, body, html body p, html body span, html body h1, html body h2, html body h3, html body h4, html body h5, html body h6 {
+  font-family: 'Open Sans', Sans-Serif!important;
+}
+
+/* Utility Classes */
+.super-hidden {
+  display: none!important;   
+}
+
+.media-router .media-menu-item.active, .media-router .media-menu-item.active:last-child{
+  background: #062861!important;
+  border-radius:0!important;
+  border:0!important
+}
+
+.media-router .media-menu-item,
+.wp-core-ui .button-group.button-hero .button, .wp-core-ui .button.button-hero{
+  background: #1e56b3!important;
+  border-radius:0!important;
+  border:0!important
+}
+
+.flex-1 {
+  color: #000;
+}
+
+/* Button Styles */
+button {
+  color: #fff!important;
+  border: 1px solid #fff!important;
+}
+
+button.absolute.right-4.top-1\/2.-translate-y-1\/2 {
+  display: none;
+}
+
+/* Input Styles */
+.input-pesquisa {
+  border-radius: 90px!important;
+  font-size: 18px!important;
+  background: #fff!important;
+  padding: 15px 100px 15px 27px!important;
+  margin-bottom:30px;
+}
+
+/* Animation */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.typing-dot {
+  animation: pulse 1s infinite;
+}
+
+/* Layout Adjustments */
+.w-\[250px\].h-\[250px\].mx-auto.mb-8 {
+  transform: scale(.3);
+  margin-bottom: -320px;
+  margin-top: -370px;
+}
+
+/* Waves Background */
+.waves-bg {
+  position: relative;
+  margin-top: 35px;
+}
+
+.waves-bg button[type="submit"] {
+  display: none!important;
+}
+
+/* AI Messages */
+.ia_messages .flex-1 {
+  color: #000!important;
+  line-height: 1.5em;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+/* Floating Buttons */
+.flex.gap-2.botoes {
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.btn_gravar, .btn_gravar:hover, .btn_gravar:active, .btn_gravar:focus {
+  font-size: 0 !important;
+  border: 0 !important;
+  background: transparent url('/wp-content/uploads/2025/01/mic.png') no-repeat center / contain !important;
+  width: 35px;
+  height: 35px;
+  margin: 12px 21px 0 0;
+}
+
+/* General Items */
+.general_items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 24px;
+  margin-top: 24px;
+}
+
+@media (max-width: 768px) {
+  .general_items {
+      grid-template-columns: 1fr;
+  }
+  
+  .w-\[250px\].h-\[250px\].mx-auto.mb-8{
+      margin-bottom: -267px;
+      margin-top: -286px;
+  }
+}
+
+/* Result Items */
+.result_item {
+  position: relative;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  border: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.result_item:hover {
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.result_item .img-wrapper {
+  width: 100%;
+  height: 240px;
+  position: relative;
+}
+
+.result_item .img-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.result_item .text-wrapper {
+  padding: 20px;
+}
+
+.result_item h3 {
+  font-size: 18px;
+  margin-bottom: 16px;
+  line-height: 1.4;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.result_item .destaque {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  background: #fbbf24;
+  color: #fff;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-weight: 500;
+  font-size: 14px;
+  z-index: 1;
+}
+
+.result_item .compatibility-badge {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgb(43 226 165);
+  color: #0b3409;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-weight: 500;
+  font-size: 14px;
+  z-index: 1;
+}
+
+/* Sponsored Items */
+.result_item.is_sponsored {
+  border: 2px solid #fbbf24;
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: row;
+  margin-bottom: 20px;
+}
+
+.result_item.is_sponsored .img-wrapper {
+  margin: 0 5% 0 0;
+  width: 400px;
+  min-width: 400px;
+}
+
+.result_item.is_sponsored .text-wrapper {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+a.ver-detalhes {
+  background: #3B81F6;
+  color: #fff;
+  margin-top: 12px;
+  border-radius: 90px;
+  padding: 6px 17px 7px 17px;
+  text-transform: uppercase;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+div#smart-search-root .ia {
+  width: 80%;
+  margin-bottom: 20px;
+  margin-left: 15%;
+  background: #fff;
+  padding: 20px 20px 20px 35px;
+  box-shadow: 0 0 30px -5px #00000066;
+  border-radius: 4px 30px 30px 30px;
+}
+
+
+div#smart-search-root .ia:first-child {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+div#smart-search-root .user {
+  width: 75%;
+  background: #3c82f6;
+  padding: 20px;
+  border-radius: 20px 3px 20px 20px;
+  box-shadow: 0px 0px 25px -5px #00000059;
+  margin-bottom: 20px;
+  margin-left: 45%;
+}
+
+div#smart-search-root .user div{
+  color: #fff!important;
+}
+
+div#smart-search-root .chat-container .chat{
+  max-width: 768px;
+}
+
+.cta-ia {
+  font-size: 18px;
+  text-align: center;
+  margin: 60px 0 0;
+}
+
+.cta-ia button {
+  background: #3c82f6;
+  font-size: 20px;
+  border-radius: 90px;
+}
+
+
+@media (max-width: 768px) {
+  .result_item.is_sponsored {
+      display: block;
+  }
+
+  .result_item.is_sponsored .img-wrapper {
+      width: 100%;
+      height: 240px;
+  }
+  
+  div#smart-search-root .ia {
+      margin-bottom: 10px;
+      margin-left: initial;
+  }
+  
+  div#smart-search-root .ia:first-child {
+      width: 100% !important;
+      max-width: 100% !important;
+  }
+  
+  div#smart-search-root .user {
+      margin-bottom: 10px;
+      margin-left: initial;
+  }
+}
+
+@media (max-width:767px){
+  .w-\[250px\].h-\[250px\].mx-auto.mb-8 {
+      transform: scale(.4);
+      margin-bottom: -105px;
+      margin-top: -128px;
+  }
+  
+  div#smart-search-root .chat-container .chat,
+    div#smart-search-root .ia{
+      max-width: 300px;
+      font-size: 13px;
+      text-align: center;
+      margin: 0 auto;
+  }
+
+  div#smart-search-root .user{
+    margin: 0 auto;
+  }
+}
+
+
+.single-listaimoveis div.elementor-location-header a{
+	width:130px;
+}
+
+.single-listaimoveis .header-cliente,
+.single-listaimoveis div.elementor-location-heade{
+	display:none!important;
+}
+
+.single-listaimoveis .header-cliente .e-con-inner{
+	padding: 5px 0 3px 0;
+}
+
+.single-listaimoveis h2.elementor-heading-title{
+	display:none;
+}
+
+.grid-immobile {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 3rem;
+  justify-content: space-around;
+}
+
+.swal2-actions {
+  gap: 1rem;
+}
+
+button.btn {
+  border-radius: 8px;
+  border: none;
+  color: #ffffff;
+}
+
+button.btn-info {
+  background: rgb(56, 88, 233);
+}
+
+button.btn-info:focus,
+button.btn-info:hover {
+  background: rgb(29, 78, 216);
+}
+
+button.btn-success {
+  background: rgb(34, 197, 94);
+}
+
+button.btn-success:focus,
+button.btn-success:hover {
+  background: rgb(22, 163, 74);
+}
+
+button.btn-danger {
+  background: rgb(239, 68, 68);
+}
+
+button.btn-danger:focus,
+button.btn-danger:hover {
+  background: rgb(220, 38, 38);
+}
+
+button.btn-gray {
+  background: rgb(156, 163, 175);
+}
+
+button.btn-gray:focus,
+button.btn-gray:hover {
+  background: rgb(75, 85, 99);
+}
+
+.copy-link {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.form-wrapper {
+  padding-bottom: 0.5rem;
+}
+
+.form-wrapper label {
+  padding-bottom: 0.25rem;
+  color: rgb(63, 63, 70);
+  display: block;
+  font-size:13px;
+	text-transform:uppercase;
+}
+
+form .form-wrapper input,
+form .form-wrapper textarea {
+  border-radius: 0;
+  border-color: #ccc;
+}
+
+form .form-wrapper input.invalid {
+  border-color: rgb(220, 38, 38);
+}
+
+form .form-wrapper input:hover,
+form .form-wrapper textarea:hover {
+  border-color: rgb(56, 88, 233);
+}
+
+.w-1\/2 {
+  width: 50%;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.group-inputs {
+  display: flex;
+  gap: 1rem;
+}
+
+form.form {
+  display: flex;
+  flex-direction: column;
+}
+
+.select2-selection__rendered {
+  line-height: 42px !important;
+}
+
+form .select2-container .select2-selection--single {
+  height: 42px;
+  border-radius: 0;
+  border-color: #ccc;
+}
+
+form .select2-container .select2-selection--single:hover {
+  border-color: rgb(56, 88, 233);
+}
+
+.select2-selection__arrow {
+  height: 42px !important;
+}
+
+form .select2-container .select2-selection--multiple {
+  padding: 0;
+  border-radius: 0;
+  border-color: #ccc;
+}
+
+form .select2-container .select2-selection--multiple {
+  height: 40px;
+  display: flex;
+  align-items: center;
+}
+
+form .select2-selection--multiple .select2-selection__rendered {
+  line-height: normal !important;
+  overflow: hidden;
+  display: flex !important;
+}
+
+form .select2-selection__choice__remove {
+  line-height: normal !important;
+}
+
+form .select2-selection__choice {
+  margin-top: 0 !important;
+}
+
+#gallery_preview {
+  border-radius: 8px;
+  border: 2px dotted rgb(56, 88, 233);
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+  gap: 0.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+button.media-modal-close {
+  border: none;
+  color: rgb(63, 63, 70);
+}
+
+button.media-modal-close:hover {
+  color: rgb(63, 63, 70);
+  background-color: transparent;
+}
+
+.media-frame-router button {
+  color: #000;
+}
+
+.media-frame-router button:focus,
+.media-frame-router button:hover {
+  background-color: transparent;
+}
+
+.form-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.form-filter button {
+  height: fit-content;
+}
+
+.form-filter .multiple {
+  width: 400px;
+}
+
+.page-numbers {
+  background: #2563eb;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  justify-content: center;
+  border-radius: 100px;
+  color: #fff;
+}
+
+.page-numbers.current {
+  background: #001f79;
+}
+
+.pagination {
+  gap: 0.5em;
+  justify-content: center;
+  display: flex;
+}
+
+/* 
+  --------- CARROSEL PATROCINADOS ----------
+*/
+/* .carrosel-patrocinados{
+  display: flex;
+  justify-content: space-between;
+}
+
+.carrosel-patrocinados .imovel{
+  width:30%;
+}
+
+.thumb-wrapper{
+  width: 100%;
+  height: 290px;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+}
+
+.thumb-wrapper img {
+  width: 100%;
+  height: 290px;
+  object-fit: cover;
+  object-position: center;
+
+} */
+
+.carrosel-patrocinados {
+  display: flex;
+  gap: 1.5rem;
+  justify-content: center;
+}
+
+.carrosel-patrocinados .imovel {
+  flex: 1 1 calc(33.333% - 1rem);
+  max-width: 350px;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+}
+
+.carrosel-patrocinados .imovel:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+}
+
+.carrosel-patrocinados .thumb-wrapper {
+  width: 100%;
+  aspect-ratio: 16/9; /* Mantém a proporção da imagem */
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 10px 10px 0 0;
+}
+
+.carrosel-patrocinados .thumb-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+
+.carrosel-patrocinados .content-wrapper{
+  padding: 10px 30px 20px;
+}
+
+.carrosel-patrocinados .titulo{
+  font-size:18px;
+  color: #062860;
+  text-transform:none;
+}
+
+.carrosel-patrocinados p{
+  margin-bottom:5px;
+  color:#000;
+}
+
+
+
+
+
+/* 
+  --------- SINGLE DE IMÓVEL ----------
+*/
+
+.single-immobile .brokers-list H2{
+  color: #1E56B3;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.destaque-interna {
+  background: #ededed;
+  margin: 45px 0;
+  padding: 40px 0 0;
+}
+
+.destaque-interna .destaque-wrapper{
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.media-content {
+    min-height: 700px;
+    background: url(https://socasatop.com.br/wp-content/uploads/2025/02/no-photo.png) no-repeat center / cover;
+}
+
+.media-tab, .content-tab,
+.media-tab.active, .content-tab.active{
+	border-radius:0!important;
+}
+
+@media(max-width:767px){
+  
+  .carrosel-patrocinados {
+    gap: 0.5rem;
+    overflow: hidden;
+  }
+
+  .carrosel-patrocinados .imovel {
+    flex:none;
+  }
+
+  .carrosel-patrocinados .content-wrapper{
+    padding: 20px;
+  }
+  
+  .carrosel-patrocinados .titulo{
+    font-size:15px;
+  }
+}
