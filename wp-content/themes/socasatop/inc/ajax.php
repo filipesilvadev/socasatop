@@ -169,17 +169,26 @@ add_action('wp_ajax_create_immobile', 'create_immobile_ajax_handler');
 
 function update_immobile_ajax_handler()
 {
-    if (!current_user_can('administrator')) {
-        wp_send_json_error('You do not have permission in this location.', 401);
-        wp_die();
-    }
-
     check_ajax_referer('ajax_nonce', 'nonce');
 
     $post_id = isset($_POST['id']) ? intval($_POST['id']) : 0;
 
     if ($post_id <= 0) {
         wp_send_json_error('ID do imóvel inválido.', 400);
+        wp_die();
+    }
+
+    // Verificar se o post existe
+    $post = get_post($post_id);
+    if (!$post || $post->post_type !== 'immobile') {
+        wp_send_json_error('Imóvel não encontrado.', 404);
+        wp_die();
+    }
+
+    // Verificar se o usuário tem permissão para editar este imóvel
+    $current_user_id = get_current_user_id();
+    if (!current_user_can('administrator') && $post->post_author != $current_user_id) {
+        wp_send_json_error('Você não tem permissão para editar este imóvel.', 401);
         wp_die();
     }
 
@@ -194,6 +203,19 @@ function update_immobile_ajax_handler()
     if (is_wp_error($update_result)) {
         wp_send_json_error('Erro ao atualizar o imóvel: ' . $update_result->get_error_message(), 500);
         wp_die();
+    }
+
+    // Atualizar metadados
+    $meta_fields = [
+        'facade', 'offer_type', 'amount', 'bedrooms', 'size',
+        'property_type', 'condominium', 'financing', 'committee',
+        'committee_socasatop', 'details', 'link', 'location'
+    ];
+
+    foreach ($meta_fields as $field) {
+        if (isset($_POST[$field])) {
+            update_post_meta($post_id, $field, sanitize_text_field($_POST[$field]));
+        }
     }
 
     wp_send_json_success('Imóvel atualizado com sucesso.', 200);
@@ -397,7 +419,7 @@ function process_immobile_payment() {
           foreach ($immobile_list as $immobile) {
               $post_data = array(
                   'post_title'    => $immobile['location'] . ' - ' . $immobile['property_type'],
-                  'post_status'   => 'draft',
+                  'post_status'   => 'pending',
                   'post_type'     => 'immobile'
               );
               
@@ -406,6 +428,13 @@ function process_immobile_payment() {
               if ($post_id) {
                   foreach ($immobile as $key => $value) {
                       update_post_meta($post_id, $key, $value);
+                  }
+                  // Adicionar meta para indicar que precisa de aprovação
+                  update_post_meta($post_id, 'needs_approval', 'yes');
+                  
+                  // Enviar notificação para o administrador sobre o novo imóvel
+                  if (function_exists('send_admin_notification_for_approval')) {
+                      send_admin_notification_for_approval($post_id);
                   }
               }
           }
@@ -421,3 +450,237 @@ function process_immobile_payment() {
   wp_die();
 }
 add_action('wp_ajax_process_immobile_payment', 'process_immobile_payment');
+
+/**
+ * Pausa o destaque de um imóvel
+ */
+function pause_immobile_highlight() {
+    check_ajax_referer('broker_dashboard_nonce', 'nonce');
+    
+    if (!is_user_logged_in()) {
+        wp_send_json_error('Usuário não autenticado');
+    }
+    
+    $user = wp_get_current_user();
+    if (!in_array('author', (array) $user->roles)) {
+        wp_send_json_error('Acesso restrito a corretores');
+    }
+    
+    $user_id = get_current_user_id();
+    $property_id = isset($_POST['property_id']) ? intval($_POST['property_id']) : 0;
+    
+    if (empty($property_id)) {
+        wp_send_json_error('ID do imóvel não fornecido');
+    }
+    
+    // Verificar se o imóvel pertence ao corretor
+    $broker_id = get_post_meta($property_id, 'broker', true);
+    if ($broker_id != $user_id) {
+        wp_send_json_error('Você não tem permissão para modificar este imóvel');
+    }
+    
+    // Verificar se o imóvel está destacado
+    $is_sponsored = get_post_meta($property_id, 'is_sponsored', true) === 'yes';
+    if (!$is_sponsored) {
+        wp_send_json_error('Este imóvel não está destacado');
+    }
+    
+    // Obter ID da assinatura do Mercado Pago
+    $subscription_id = get_post_meta($property_id, 'mercadopago_subscription_id', true);
+    
+    if (!empty($subscription_id)) {
+        // Cancelar assinatura no Mercado Pago
+        $cancel_result = cancel_mercadopago_subscription($subscription_id);
+        
+        if (!$cancel_result['success']) {
+            wp_send_json_error('Erro ao cancelar a assinatura: ' . $cancel_result['message']);
+        }
+    }
+    
+    // Marcar o destaque como pausado
+    update_post_meta($property_id, 'highlight_paused', 'yes');
+    
+    // Registrar a ação nos logs
+    $log_message = sprintf(
+        'Destaque pausado para o imóvel #%d pelo usuário #%d',
+        $property_id,
+        $user_id
+    );
+    error_log($log_message);
+    
+    wp_send_json_success('Destaque pausado com sucesso');
+}
+add_action('wp_ajax_pause_immobile_highlight', 'pause_immobile_highlight');
+
+/**
+ * Cancela uma assinatura no Mercado Pago
+ * 
+ * Esta é uma implementação simulada. Em produção, você usaria a API do Mercado Pago.
+ */
+function cancel_mercadopago_subscription($subscription_id) {
+    // Simulação de sucesso (em produção, você faria a integração real com o Mercado Pago)
+    return array(
+        'success' => true,
+        'message' => 'Assinatura cancelada com sucesso'
+    );
+}
+
+/**
+ * Excluir múltiplos imóveis de uma vez
+ */
+function bulk_delete_immobiles() {
+    // Verificar nonce - aceitando os dois tipos de nonce para compatibilidade
+    if (isset($_POST['nonce'])) {
+        check_ajax_referer('ajax_nonce', 'nonce');
+    } else if (isset($_POST['security'])) {
+        check_ajax_referer('broker_dashboard_nonce', 'security');
+    } else {
+        wp_send_json_error('Erro de segurança: nonce inválido');
+        return;
+    }
+    
+    if (!is_user_logged_in()) {
+        wp_send_json_error('Usuário não autenticado');
+    }
+    
+    $user = wp_get_current_user();
+    if (!in_array('author', (array) $user->roles)) {
+        wp_send_json_error('Acesso restrito a corretores');
+    }
+    
+    $user_id = get_current_user_id();
+    // Verificar os dois possíveis nomes de parâmetro (para compatibilidade)
+    $property_ids = isset($_POST['property_ids']) ? $_POST['property_ids'] : 
+                    (isset($_POST['immobile_ids']) ? $_POST['immobile_ids'] : array());
+    
+    if (empty($property_ids) || !is_array($property_ids)) {
+        wp_send_json_error('Nenhum imóvel selecionado para exclusão');
+    }
+    
+    $success_count = 0;
+    $error_count = 0;
+    $errors = array();
+    
+    foreach ($property_ids as $property_id) {
+        $property_id = intval($property_id);
+        
+        if (empty($property_id)) {
+            continue;
+        }
+        
+        // Verificar se o imóvel pertence ao corretor
+        $broker_id = get_post_meta($property_id, 'broker', true);
+        if ($broker_id != $user_id) {
+            $error_count++;
+            $errors[] = "Imóvel #$property_id: Você não tem permissão para excluir este imóvel";
+            continue;
+        }
+        
+        // Verificar se o imóvel está destacado e tem assinatura
+        $is_sponsored = get_post_meta($property_id, 'is_sponsored', true) === 'yes';
+        if ($is_sponsored) {
+            $subscription_id = get_post_meta($property_id, 'mercadopago_subscription_id', true);
+            if (!empty($subscription_id)) {
+                // Cancelar assinatura no Mercado Pago
+                cancel_mercadopago_subscription($subscription_id);
+            }
+        }
+        
+        // Tentar excluir o imóvel
+        $deleted = wp_delete_post($property_id, true);
+        
+        if ($deleted) {
+            $success_count++;
+        } else {
+            $error_count++;
+            $errors[] = "Imóvel #$property_id: Erro ao tentar excluir";
+        }
+    }
+    
+    // Registrar a ação nos logs
+    $log_message = sprintf(
+        'Exclusão em massa de imóveis pelo usuário #%d. Sucesso: %d, Falhas: %d',
+        $user_id,
+        $success_count,
+        $error_count
+    );
+    error_log($log_message);
+    
+    if ($success_count > 0) {
+        wp_send_json_success(array(
+            'success_count' => $success_count,
+            'error_count' => $error_count,
+            'errors' => $errors
+        ));
+    } else {
+        wp_send_json_error('Não foi possível excluir nenhum dos imóveis selecionados');
+    }
+}
+add_action('wp_ajax_bulk_delete_immobiles', 'bulk_delete_immobiles');
+
+/**
+ * Excluir um imóvel permanentemente
+ */
+function delete_immobile() {
+    // Verificar nonce - aceitando os dois tipos de nonce para compatibilidade
+    if (isset($_POST['nonce'])) {
+        check_ajax_referer('ajax_nonce', 'nonce');
+    } else if (isset($_POST['security'])) {
+        check_ajax_referer('broker_dashboard_nonce', 'security');
+    } else {
+        wp_send_json_error('Erro de segurança: nonce inválido');
+        return;
+    }
+    
+    if (!is_user_logged_in()) {
+        wp_send_json_error('Usuário não autenticado');
+    }
+    
+    $user = wp_get_current_user();
+    if (!in_array('author', (array) $user->roles)) {
+        wp_send_json_error('Acesso restrito a corretores');
+    }
+    
+    $user_id = get_current_user_id();
+    // Verificar os dois possíveis nomes de parâmetro (para compatibilidade)
+    $property_id = isset($_POST['property_id']) ? intval($_POST['property_id']) : 
+                   (isset($_POST['immobile_id']) ? intval($_POST['immobile_id']) : 0);
+    
+    if (empty($property_id)) {
+        wp_send_json_error('ID do imóvel não fornecido');
+    }
+    
+    // Verificar se o imóvel pertence ao corretor
+    $broker_id = get_post_meta($property_id, 'broker', true);
+    if ($broker_id != $user_id) {
+        wp_send_json_error('Você não tem permissão para excluir este imóvel');
+    }
+    
+    // Verificar se o imóvel está destacado e tem assinatura
+    $is_sponsored = get_post_meta($property_id, 'is_sponsored', true) === 'yes';
+    if ($is_sponsored) {
+        $subscription_id = get_post_meta($property_id, 'mercadopago_subscription_id', true);
+        if (!empty($subscription_id)) {
+            // Cancelar assinatura no Mercado Pago
+            cancel_mercadopago_subscription($subscription_id);
+        }
+    }
+    
+    // Excluir o imóvel
+    $deleted = wp_delete_post($property_id, true);
+    
+    if (!$deleted) {
+        wp_send_json_error('Erro ao excluir o imóvel');
+    }
+    
+    // Registrar a ação nos logs
+    $log_message = sprintf(
+        'Imóvel #%d excluído pelo usuário #%d',
+        $property_id,
+        $user_id
+    );
+    error_log($log_message);
+    
+    wp_send_json_success('Imóvel excluído com sucesso');
+}
+add_action('wp_ajax_delete_immobile', 'delete_immobile');

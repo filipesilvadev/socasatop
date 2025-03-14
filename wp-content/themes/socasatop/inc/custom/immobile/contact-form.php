@@ -47,6 +47,15 @@ function handle_contact_form_submission() {
         wp_send_json_error('Corretor não encontrado');
     }
 
+    // Obter dados do imóvel e corretor
+    $immobile = get_post($post_id);
+    $broker = get_userdata($broker_id);
+    
+    if (!$immobile || !$broker) {
+        wp_send_json_error('Imóvel ou corretor não encontrado');
+    }
+    
+    // Criar o lead como post type
     $lead_data = array(
         'post_title'    => $name,
         'post_type'     => 'lead',
@@ -56,10 +65,14 @@ function handle_contact_form_submission() {
     $lead_id = wp_insert_post($lead_data);
 
     if ($lead_id) {
+        // Salvar metadados do lead
         update_post_meta($lead_id, 'email', $email);
         update_post_meta($lead_id, 'whatsapp', $whatsapp);
         update_post_meta($lead_id, 'immobile_id', $post_id);
         update_post_meta($lead_id, 'broker_id', $broker_id);
+        update_post_meta($lead_id, 'immobile_title', $immobile->post_title);
+        update_post_meta($lead_id, 'broker_name', $broker->display_name);
+        update_post_meta($lead_id, 'lead_date', current_time('mysql'));
     }
     
     // Registra conversão para o imóvel
@@ -74,16 +87,48 @@ function handle_contact_form_submission() {
     $broker_conversions = (int)get_user_meta($broker_id, "metrics_conversions_{$date}", true);
     update_user_meta($broker_id, "metrics_conversions_{$date}", $broker_conversions + 1);
     
-    $broker = get_userdata($broker_id);
-    $phone = get_user_meta($broker_id, 'whatsapp', true);
+    // Obter dados do corretor e preparar URL do WhatsApp
+    $broker_phone = get_user_meta($broker_id, 'whatsapp', true);
+    
+    // Se o WhatsApp estiver vazio, tenta usar o telefone regular
+    if (empty($broker_phone)) {
+        $broker_phone = get_user_meta($broker_id, 'phone', true);
+    }
+    
+    // Se ainda estiver vazio, usa um padrão ou retorna erro
+    if (empty($broker_phone)) {
+        wp_send_json_error('Corretor não possui número de WhatsApp cadastrado');
+    }
+    
+    $formatted_phone = preg_replace('/[^0-9]/', '', $broker_phone);
+    
+    // Organizar mensagem para o WhatsApp com os espaçamentos corretos
+    $message = "Olá! Encontrei seu anúncio no Só Casa Top\n\n\n";
+    $message .= "Vi o imóvel " . $immobile->post_title . "\n";
+    $message .= get_permalink($post_id) . "\n\n\n";
+    $message .= "Gostaria de saber mais.";
+    
+    // Codificar mensagem para URL
+    $encoded_message = urlencode($message);
+    
+    // Construir URL do WhatsApp
+    $whatsapp_url = "https://wa.me/{$formatted_phone}?text={$encoded_message}";
     
     wp_send_json_success([
         'broker' => [
             'name' => $broker->display_name,
             'email' => $broker->user_email,
-            'phone' => $phone
-        ]
+            'phone' => $broker_phone
+        ],
+        'immobile' => [
+            'title' => $immobile->post_title,
+            'url' => get_permalink($post_id)
+        ],
+        'whatsapp_url' => $whatsapp_url
     ]);
 }
 add_action('wp_ajax_submit_contact_form', 'handle_contact_form_submission');
 add_action('wp_ajax_nopriv_submit_contact_form', 'handle_contact_form_submission');
+
+// Incluir o arquivo da página de administração de leads
+require_once get_stylesheet_directory() . '/inc/custom/lead/admin-page.php';

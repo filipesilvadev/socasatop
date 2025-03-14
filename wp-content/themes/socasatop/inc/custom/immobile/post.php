@@ -15,6 +15,7 @@ function immobile_post()
         'not_found_in_trash' => 'Nenhum imóvel encontrado na lixeira'
     );
 
+    
     $args = array(
         'labels' => $labels,
         'public' => true,
@@ -178,7 +179,15 @@ function display_immobile_template() {
                             <div class="broker-info">
                                 <h3><?php echo $broker->display_name; ?></h3>
                                 <?php if ($broker->is_sponsor): ?>
-                                    <span class="sponsor-badge">Patrocinador</span>
+                                    <span class="sponsor-badge">Destaque</span>
+                                <?php endif; ?>
+                                <?php 
+                                $broker_bio = get_user_meta($broker->ID, 'release', true);
+                                if (!empty($broker_bio)): 
+                                ?>
+                                <div class="broker-bio">
+                                    <?php echo wpautop($broker_bio); ?>
+                                </div>
                                 <?php endif; ?>
                                 <button 
                                     onclick="openContactForm(<?php echo esc_attr($broker->ID); ?>, <?php echo esc_attr($current_post_id); ?>)"
@@ -276,6 +285,7 @@ function display_immobile_template() {
 
         .swiper {
             width: 100%;
+            max-width: 600px;
             margin: 0 auto;
         }
 
@@ -293,9 +303,10 @@ function display_immobile_template() {
         }
 
         .swiper-slide img {
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
+            width: 100%;
+            height: auto;
+            max-height: 400px;
+            object-fit: cover;
         }
 
         .video-container {
@@ -314,7 +325,7 @@ function display_immobile_template() {
         }
 
         .media-content {
-            min-height: 700px;
+            min-height: 450px;
         }
 
         .content-wrapper{
@@ -393,6 +404,13 @@ function display_immobile_template() {
 
         .destaque-wrapper{
           display:none;
+        }
+
+        .broker-bio {
+            margin: 10px 0;
+            font-size: 14px;
+            color: #666;
+            line-height: 1.5;
         }
 
         @media (max-width: 768px) {

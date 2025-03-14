@@ -15,7 +15,7 @@ function create_immobile_flow() {
 
     $marketing_products = [
       'patrocinado' => [
-          'name' => 'Patrocinado',
+          'name' => 'Destaque',
           'price' => 99,
           'description' => 'Tenha seu imóvel destacado no topo das buscas.'
       ],
@@ -36,6 +36,7 @@ function create_immobile_flow() {
       ]
     ];
 
+    wp_enqueue_script('jquery-ui-sortable');
     wp_enqueue_script('mercadopago-js', 'https://sdk.mercadopago.com/js/v2', [], null, true);
 
     ob_start();
@@ -54,6 +55,11 @@ function create_immobile_flow() {
                 <span class="step-number">3</span>
                 Publicar
             </div>
+        </div>
+
+        <div class="flow-actions top-actions">
+            <button id="prev-step-top" style="display:none;" class="nav-button">Voltar</button>
+            <button id="next-step-top" class="nav-button">Próximo</button>
         </div>
 
         <div class="flow-content">
@@ -150,12 +156,26 @@ function create_immobile_flow() {
                                 <input type="text" name="facade" id="facade">
                             </div>
 
+                            <div class="form-group social-media-authorization-box">
+                                <div class="social-media-content">
+                                    <div class="social-media-icon">
+                                        <i class="fas fa-share-alt"></i>
+                                    </div>
+                                    <div class="social-media-text">
+                                        <label for="not_social_media" class="checkbox-label">
+                                            <input type="checkbox" name="not_social_media" id="not_social_media" value="1">
+                                            <span>Não autorizo a publicação deste imóvel no Instagram e outras redes sociais <span class="not-recommended">(Não recomendado)</span></span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
 
                             <div class="form-group">
                                 <label for="immobile_gallery">Galeria de Imagens</label>
                                 <input type="hidden" id="immobile_gallery" name="immobile_gallery" />
                                 <button type="button" id="upload_gallery_button" class="upload-button">Adicionar Imagens</button>
                                 <div id="gallery_preview" class="gallery-preview"></div>
+                                <p class="description">A primeira imagem será utilizada como capa. Arraste as imagens para reordenar. Ou passe o mouse sobre a imagem para defini-la como capa.</p>
                             </div>
 
                             <div class="form-group">
@@ -163,7 +183,7 @@ function create_immobile_flow() {
                                 <input type="hidden" id="immobile_videos" name="immobile_videos" />
                                 <button type="button" id="upload_videos_button" class="upload-button">Adicionar Vídeos</button>
                                 <div id="videos_preview" class="videos-preview"></div>
-                                <small class="form-text text-muted">Formatos aceitos: MP4, WebM (máx. 128MB)</small>
+                                <p class="description">Arraste os vídeos para reordenar. Formatos aceitos: MP4, WebM (máx. 128MB)</p>
                             </div>
 
                             <button type="submit" class="save-button">Salvar</button>
@@ -174,6 +194,9 @@ function create_immobile_flow() {
 
             <div class="flow-step" id="step-2" style="display:none;">
                 <h2>Impulsione suas Vendas</h2>
+                <div class="marketing-info-box">
+                    <p><strong>Informação importante:</strong> Cada imóvel tem um custo base de <span class="highlight-price">R$15,00/mês</span> para publicação. Você pode adicionar serviços extras abaixo para aumentar a visibilidade e as chances de venda. Todos os valores são cobrados mensalmente como assinatura recorrente no seu cartão de crédito.</p>
+                </div>
                 <div id="marketing-section" class="marketing-section"></div>
             </div>
 
@@ -187,7 +210,7 @@ function create_immobile_flow() {
             </div>
         </div>
 
-        <div class="flow-actions">
+        <div class="flow-actions bottom-actions">
             <button id="prev-step" style="display:none;" class="nav-button">Voltar</button>
             <button id="next-step" class="nav-button">Próximo</button>
         </div>
@@ -310,6 +333,60 @@ function create_immobile_flow() {
         margin-top: 10px;
     }
 
+    .gallery-image {
+        position: relative;
+        display: inline-block;
+        margin: 5px;
+        border: 1px solid #ddd;
+        padding: 5px;
+        transition: all 0.3s ease;
+    }
+
+    .gallery-image img {
+        max-width: 150px;
+        max-height: 150px;
+        object-fit: cover;
+    }
+
+    .gallery-image .image-actions {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: rgba(0,0,0,0.7);
+        color: white;
+        padding: 5px;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        text-align: center;
+    }
+
+    .gallery-image:hover .image-actions {
+        opacity: 1;
+    }
+
+    .make-featured {
+        cursor: pointer;
+        display: block;
+        font-size: 12px;
+        white-space: nowrap;
+    }
+
+    .remove-image {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        background: rgba(255,0,0,0.7);
+        color: white;
+        width: 20px;
+        height: 20px;
+        text-align: center;
+        line-height: 20px;
+        border-radius: 50%;
+        cursor: pointer;
+        z-index: 10;
+    }
+
     .save-button {
         background: #0056b3;
         color: white;
@@ -335,14 +412,119 @@ function create_immobile_flow() {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
         gap: 20px;
-        padding: 20px;
+        margin-top: 15px;
     }
 
     .marketing-product {
         background: white;
         padding: 20px;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        border-radius: 10px;
+        box-shadow: 0 3px 8px rgba(0,0,0,0.08);
+        transition: transform 0.2s, box-shadow 0.2s;
+        position: relative;
+        overflow: hidden;
+        border: 1px solid #eaeaea;
+    }
+
+    .marketing-product:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+
+    .product-header {
+        display: flex;
+        margin-bottom: 15px;
+    }
+
+    .checkbox-wrapper {
+        position: relative;
+        min-width: 24px;
+        height: 24px;
+        margin-right: 12px;
+    }
+
+    .checkbox-wrapper input {
+        position: absolute;
+        opacity: 0;
+        cursor: pointer;
+        height: 0;
+        width: 0;
+    }
+
+    .checkmark {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 24px;
+        width: 24px;
+        background-color: #f0f0f0;
+        border-radius: 4px;
+        transition: all 0.2s;
+        border: 1px solid #ddd;
+    }
+
+    .checkbox-wrapper:hover input ~ .checkmark {
+        background-color: #e0e0e0;
+    }
+
+    .checkbox-wrapper input:checked ~ .checkmark {
+        background-color: #0056b3;
+        border-color: #0056b3;
+    }
+
+    .checkmark:after {
+        content: "";
+        position: absolute;
+        display: none;
+    }
+
+    .checkbox-wrapper input:checked ~ .checkmark:after {
+        display: block;
+    }
+
+    .checkbox-wrapper .checkmark:after {
+        left: 9px;
+        top: 5px;
+        width: 5px;
+        height: 10px;
+        border: solid white;
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+    }
+
+    .product-label {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        cursor: pointer;
+    }
+
+    .product-name {
+        font-weight: bold;
+        font-size: 1.1em;
+        color: #333;
+        margin-bottom: 5px;
+    }
+
+    .product-price {
+        color: #0056b3;
+        font-weight: 500;
+    }
+
+    .product-description {
+        color: #666;
+        font-size: 0.9em;
+        line-height: 1.5;
+        margin-left: 36px;
+    }
+
+    .marketing-immobile {
+        background: #f9f9f9;
+        padding: 25px;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        margin-bottom: 25px;
+        border: 1px solid #eee;
     }
 
     .payment-container {
@@ -423,6 +605,7 @@ function create_immobile_flow() {
         background: #f8f9fa;
         padding: 10px;
         border-radius: 4px;
+        cursor: move;
     }
 
     .video-preview video {
@@ -432,8 +615,8 @@ function create_immobile_flow() {
 
     .remove-video {
         position: absolute;
-        top: -8px;
-        right: -8px;
+        top: 5px;
+        right: 5px;
         width: 24px;
         height: 24px;
         border-radius: 50%;
@@ -445,6 +628,7 @@ function create_immobile_flow() {
         align-items: center;
         justify-content: center;
         font-size: 18px;
+        z-index: 5;
     }
 
     .summary-item {
@@ -557,6 +741,129 @@ function create_immobile_flow() {
       padding:0;
     }
 }
+
+.flow-actions {
+    margin-top: 20px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.top-actions {
+    margin-bottom: 20px;
+}
+
+.bottom-actions {
+    margin-top: 20px;
+}
+
+.flow-actions button:last-child {
+    margin-left: auto;
+}
+
+/* Estilo para o checkbox de desautorização */
+.checkbox-group {
+    margin: 15px 0;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: flex-start;
+    cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+    margin-right: 10px;
+    margin-top: 3px;
+}
+
+.not-recommended {
+    color: #dc3545;
+    font-weight: bold;
+    margin-left: 5px;
+}
+
+.base-price {
+    font-size: 0.7em;
+    font-weight: normal;
+    color: #0056b3;
+    margin-left: 8px;
+}
+
+.marketing-info-box {
+    background-color: #f8f9fa;
+    border-left: 4px solid #0056b3;
+    padding: 15px 20px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+}
+
+.highlight-price {
+    color: #0056b3;
+    font-weight: bold;
+}
+
+.immobile-title {
+    font-size: 1.1em;
+    margin-bottom: 10px;
+}
+
+/* Estilo para o checkbox de desautorização */
+.checkbox-group {
+    margin: 15px 0;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: flex-start;
+    cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+    margin-right: 10px;
+    margin-top: 3px;
+}
+
+.not-recommended {
+    color: #dc3545;
+    font-weight: bold;
+    margin-left: 5px;
+}
+
+/* Novo estilo para o box de autorização de redes sociais */
+.social-media-authorization-box {
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 15px;
+    margin: 15px 0;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.social-media-content {
+    display: flex;
+    align-items: center;
+}
+
+.social-media-icon {
+    background-color: #e9ecef;
+    color: #0056b3;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 15px;
+    flex-shrink: 0;
+}
+
+.social-media-icon i {
+    font-size: 18px;
+}
+
+.social-media-text {
+    flex-grow: 1;
+}
     </style>
 
 <script>
@@ -589,6 +896,9 @@ function create_immobile_flow() {
             this.reset();
             $('#gallery_preview').empty();
             $('#videos_preview').empty();
+            
+            // Disparar evento de imóvel adicionado
+            $(document).trigger('immobile_added', [immobile]);
         });
 
         function updateImmobileList() {
@@ -619,15 +929,29 @@ function create_immobile_flow() {
             $marketingSection.empty();
             
             immobileList.forEach((immobile, immobileIndex) => {
+                let immobileTotal = 15; // Valor base do imóvel
+                const selectedProducts = [];
+
+                $(`input[name="marketing_products[${immobileIndex}][]"]:checked`).each(function() {
+                    const productKey = $(this).val();
+                    const productPrice = marketingProducts[productKey].price;
+                    immobileTotal += productPrice;
+                    selectedProducts.push(marketingProducts[productKey].name);
+                });
+
                 const productsHtml = Object.entries(marketingProducts).map(([key, product]) => `
                     <div class="marketing-product">
                         <div class="product-header">
-                            <input type="checkbox" 
-                                   id="product-${key}-${immobileIndex}" 
-                                   name="marketing_products[${immobileIndex}][]" 
-                                   value="${key}">
-                            <label for="product-${key}-${immobileIndex}">
-                                ${product.name} - R$${product.price.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                            <div class="checkbox-wrapper">
+                                <input type="checkbox" 
+                                       id="product-${key}-${immobileIndex}" 
+                                       name="marketing_products[${immobileIndex}][]" 
+                                       value="${key}">
+                                <span class="checkmark"></span>
+                            </div>
+                            <label for="product-${key}-${immobileIndex}" class="product-label">
+                                <span class="product-name">${product.name}</span>
+                                <span class="product-price">R$${product.price.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                             </label>
                         </div>
                         <p class="product-description">${product.description}</p>
@@ -636,7 +960,7 @@ function create_immobile_flow() {
 
                 $marketingSection.append(`
                     <div class="marketing-immobile">
-                        <h3>${immobile.immobile_name}</h3>
+                        <h3 class="immobile-title">${immobile.immobile_name} <span class="base-price">R$15,00/mês</span></h3>
                         <div class="marketing-products">
                             ${productsHtml}
                         </div>
@@ -664,16 +988,71 @@ function create_immobile_flow() {
                     }
                 );
                 
+                let imageIds = [];
+                // Obter IDs existentes
+                $('.gallery-image').each(function() {
+                    imageIds.push($(this).data('id'));
+                });
+                
                 attachments.forEach(attachment => {
+                    // Adicionar novo ID à lista
+                    imageIds.push(attachment.id);
+                    
                     $('#gallery_preview').append(`
-                        <div class="gallery-image">
-                            <img src="${attachment.url}" alt="" style="max-width: 100px;"/>
+                        <div class="gallery-image" data-id="${attachment.id}">
+                            <img src="${attachment.url}" alt="" />
+                            <span class="remove-image">×</span>
+                            <div class="image-actions">
+                                <label class="make-featured">
+                                    <input type="radio" name="featured_image" value="${attachment.id}"> Definir como Capa
+                                </label>
+                            </div>
                         </div>
                     `);
                 });
+                
+                // Atualizar o campo oculto com os IDs
+                $('#immobile_gallery').val(imageIds.join(','));
             });
 
             mediaUploader.open();
+        });
+        
+        // Remover imagem
+        $(document).on('click', '.remove-image', function() {
+            var $item = $(this).closest('.gallery-image');
+            var imageId = $item.data('id');
+            var currentIds = $('#immobile_gallery').val() ? $('#immobile_gallery').val().split(',') : [];
+            var newIds = currentIds.filter(id => id != imageId);
+            
+            $('#immobile_gallery').val(newIds.join(','));
+            $item.remove();
+        });
+        
+        // Definir imagem como capa
+        $(document).on('change', 'input[name="featured_image"]', function() {
+            var featuredId = $(this).val();
+            var currentIds = $('#immobile_gallery').val() ? $('#immobile_gallery').val().split(',') : [];
+            
+            // Remover o ID da imagem de capa da lista
+            currentIds = currentIds.filter(id => id != featuredId);
+            
+            // Adicionar o ID da imagem de capa no início
+            currentIds.unshift(featuredId);
+            
+            // Atualizar o campo oculto
+            $('#immobile_gallery').val(currentIds.join(','));
+        });
+        
+        // Tornar galeria de imagens ordenável
+        $('#gallery_preview').sortable({
+            update: function(event, ui) {
+                var imageIds = [];
+                $('.gallery-image').each(function() {
+                    imageIds.push($(this).data('id'));
+                });
+                $('#immobile_gallery').val(imageIds.join(','));
+            }
         });
 
         $('#upload_videos_button').on('click', function() {
@@ -716,6 +1095,13 @@ function create_immobile_flow() {
             $(this).closest('.video-preview').remove();
             updateVideoIds();
         });
+        
+        // Tornar lista de vídeos ordenável
+        $('#videos_preview').sortable({
+            update: function(event, ui) {
+                updateVideoIds();
+            }
+        });
 
         function updateVideoIds() {
             var ids = [];
@@ -741,6 +1127,9 @@ function create_immobile_flow() {
                 style: {
                     theme: 'default'
                 }
+            },
+            installments: {
+                maxInstallments: 1
             }
         },
         callbacks: {
@@ -749,7 +1138,7 @@ function create_immobile_flow() {
                 return new Promise((resolve, reject) => {
                     const paymentData = {
                         token: cardData.token,
-                        installments: 1,
+                        installments: 1, // Forçar 1 parcela para assinatura mensal
                         payment_method_id: cardData.payment_method_id,
                         transaction_amount: totalValue,
                         payer: {
@@ -826,7 +1215,7 @@ function create_immobile_flow() {
     $summaryList.empty();
     
     immobileList.forEach((immobile, index) => {
-        let immobileTotal = 25; // Valor base do imóvel
+        let immobileTotal = 15; // Valor base do imóvel
         const selectedProducts = [];
 
         $(`input[name="marketing_products[${index}][]"]:checked`).each(function() {
@@ -903,6 +1292,9 @@ function create_immobile_flow() {
                 if (currentStep + 1 === 3) {
                     $('#next-step').hide();
                 }
+                
+                // Disparar evento de mudança de etapa
+                $(document).trigger('step_change', [currentStep + 1]);
             }
         });
 
@@ -921,6 +1313,54 @@ function create_immobile_flow() {
                 if (currentStep - 1 === 1) {
                     $('#prev-step').hide();
                 }
+                
+                // Disparar evento de mudança de etapa
+                $(document).trigger('step_change', [currentStep - 1]);
+            }
+        });
+
+        // Sincronizar os botões de navegação superior e inferior
+        $('#next-step-top').on('click', function() {
+            $('#next-step').click();
+        });
+        
+        $('#prev-step-top').on('click', function() {
+            $('#prev-step').click();
+        });
+        
+        // Função para rolar para o topo quando um novo imóvel é adicionado
+        function scrollToTop() {
+            $('html, body').animate({
+                scrollTop: $('.immobile-create-flow-container').offset().top - 50
+            }, 500);
+        }
+        
+        // Quando um novo imóvel é adicionado com sucesso
+        $(document).on('immobile_added', function(e, response) {
+            // Rolar para o topo após adicionar um novo imóvel
+            scrollToTop();
+            
+            // Mostrar mensagem de sucesso
+            Swal.fire({
+                title: 'Sucesso!',
+                text: 'Imóvel adicionado com sucesso!',
+                icon: 'success',
+                confirmButtonText: 'OK'
+            });
+        });
+        
+        // Atualizar visibilidade dos botões no topo
+        $(document).on('step_change', function(e, currentStep) {
+            if (currentStep > 1) {
+                $('#prev-step-top').show();
+            } else {
+                $('#prev-step-top').hide();
+            }
+            
+            if (currentStep === 3) {
+                $('#next-step-top').hide();
+            } else {
+                $('#next-step-top').show();
             }
         });
     });

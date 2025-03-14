@@ -65,6 +65,7 @@ function get_broker_immobile_list() {
         SELECT 
             i.ID as id,
             i.post_title as title,
+            i.post_status as status,
             COALESCE(vm.meta_value, '0') as views,
             COALESCE(cm.meta_value, '0') as clicks,
             COALESCE(sp.meta_value, 'no') as sponsored
@@ -74,7 +75,7 @@ function get_broker_immobile_list() {
         LEFT JOIN {$wpdb->postmeta} cm ON i.ID = cm.post_id AND cm.meta_key = 'total_clicks'
         LEFT JOIN {$wpdb->postmeta} sp ON i.ID = sp.post_id AND sp.meta_key = 'is_sponsored'
         WHERE i.post_type = 'immobile'
-        AND i.post_status = 'publish'
+        AND (i.post_status = 'publish' OR i.post_status = 'draft')
         AND pm.meta_key = 'broker'
         AND pm.meta_value = %d
     ", $user_id));
@@ -84,6 +85,7 @@ function get_broker_immobile_list() {
         return array(
             'id' => $prop->id,
             'title' => $prop->title,
+            'status' => $prop->status,
             'views' => (int)$prop->views,
             'clicks' => (int)$prop->clicks,
             'conversions' => (int)$conversions,

@@ -42,57 +42,49 @@ add_shortcode('sponsored_carousel', 'sponsored_carousel_shortcode');
 
 function get_sponsored_properties() {
     global $wpdb;
-    $table_name = $wpdb->prefix . 'sponsored_listings';
+    $current_post_id = get_the_ID();
     
-    // Verifica se a tabela existe
-    $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'");
-    error_log("Tabela $table_name existe? " . ($table_exists ? 'Sim' : 'Não'));
+    // Buscar imóveis com meta 'is_sponsored' = 'yes'
+    $args = array(
+        'post_type' => 'immobile',
+        'post_status' => 'publish',
+        'posts_per_page' => 10,
+        'meta_query' => array(
+            array(
+                'key' => 'is_sponsored',
+                'value' => 'yes',
+                'compare' => '='
+            )
+        ),
+        'post__not_in' => array($current_post_id) // Excluir o imóvel atual
+    );
     
-    if (!$table_exists) {
-        error_log("Tabela de patrocinados não existe!");
-        return [];
+    $query = new WP_Query($args);
+    $properties = array();
+    
+    if ($query->have_posts()) {
+        while ($query->have_posts()) {
+            $query->the_post();
+            $post_id = get_the_ID();
+            
+            $gallery = get_post_meta($post_id, 'immobile_gallery', true);
+            $gallery_ids = !empty($gallery) ? explode(',', $gallery) : array();
+            $first_image_id = !empty($gallery_ids[0]) ? $gallery_ids[0] : 0;
+            
+            $properties[] = array(
+                'id' => $post_id,
+                'title' => get_the_title(),
+                'permalink' => get_permalink(),
+                'thumbnail' => $first_image_id ? wp_get_attachment_url($first_image_id) : '',
+                'location' => get_post_meta($post_id, 'location', true),
+                'amount' => get_post_meta($post_id, 'amount', true)
+            );
+        }
     }
     
-    $query = "
-        SELECT DISTINCT 
-            p.ID,
-            p.post_title,
-            pm_location.meta_value as location,
-            pm_amount.meta_value as amount,
-            pm_gallery.meta_value as gallery_images
-        FROM {$wpdb->posts} p
-        INNER JOIN $table_name sl ON p.ID = sl.property_id
-        LEFT JOIN {$wpdb->postmeta} pm_location ON p.ID = pm_location.post_id AND pm_location.meta_key = 'location'
-        LEFT JOIN {$wpdb->postmeta} pm_amount ON p.ID = pm_amount.post_id AND pm_amount.meta_key = 'amount'
-        LEFT JOIN {$wpdb->postmeta} pm_gallery ON p.ID = pm_gallery.post_id AND pm_gallery.meta_key = 'immobile_gallery'
-        WHERE sl.status = 'active'
-        AND sl.end_date >= CURDATE()
-        AND p.post_type = 'immobile'
-        AND p.post_status = 'publish'
-        ORDER BY RAND()
-        LIMIT 10";
-        
-    $results = $wpdb->get_results($query);
-    error_log("Total de imóveis patrocinados: " . count($results));
+    wp_reset_postdata();
     
-    if ($wpdb->last_error) {
-        error_log("Erro SQL: " . $wpdb->last_error);
-        return [];
-    }
-    
-    return array_map(function($post) {
-        $gallery_ids = !empty($post->gallery_images) ? explode(',', $post->gallery_images) : [];
-        $first_image_id = !empty($gallery_ids[0]) ? $gallery_ids[0] : 0;
-        
-        return [
-            'id' => $post->ID,
-            'title' => $post->post_title,
-            'permalink' => get_permalink($post->ID),
-            'thumbnail' => $first_image_id ? wp_get_attachment_url($first_image_id) : '',
-            'location' => $post->location,
-            'amount' => $post->amount
-        ];
-    }, $results);
+    return $properties;
 }
 
 

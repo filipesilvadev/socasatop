@@ -18,7 +18,7 @@ function process_immobile_creation_payment() {
                 foreach ($immobile_list as $immobile) {
                     $post_data = array(
                         'post_title'    => $immobile['location'] . ' - ' . $immobile['property_type'],
-                        'post_status'   => 'draft',
+                        'post_status'   => 'pending',
                         'post_type'     => 'immobile'
                     );
                     
@@ -27,6 +27,11 @@ function process_immobile_creation_payment() {
                     if ($post_id) {
                         foreach ($immobile as $key => $value) {
                             update_post_meta($post_id, $key, $value);
+                        }
+                        update_post_meta($post_id, 'needs_approval', 'yes');
+                        
+                        if (function_exists('send_admin_notification_for_approval')) {
+                            send_admin_notification_for_approval($post_id);
                         }
                     }
                 }

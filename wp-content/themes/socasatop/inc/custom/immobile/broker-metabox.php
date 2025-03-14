@@ -48,7 +48,7 @@ function render_broker_metabox($post) {
                            name="immobile_sponsor_brokers[]" 
                            value="<?php echo $broker->ID; ?>"
                            <?php checked(in_array($broker->ID, $sponsored_broker_ids)); ?>>
-                    Patrocinador
+                    Destaque
                 </label>
             </div>
         <?php endforeach; ?>

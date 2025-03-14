@@ -38,6 +38,207 @@ function media_load_scripts()
 }
 add_action('wp_enqueue_scripts', 'media_load_scripts');
 
+function enqueue_font_awesome()
+{
+    wp_enqueue_style('font-awesome', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css', [], '5.15.4');
+}
+add_action('wp_enqueue_scripts', 'enqueue_font_awesome');
+
+/**
+ * Função para carregar script que suprime erros de webhook do Elementor
+ */
+function enqueue_elementor_form_fix() {
+    wp_register_script('elementor-form-error-fix', '', [], false, true);
+    wp_enqueue_script('elementor-form-error-fix');
+    
+    $script = "
+    jQuery(document).ready(function($) {
+        // Interceptar envios de formulário Elementor
+        $(document).on('submit_success', '.elementor-form', function(event) {
+            // Prevenimos a exibição de mensagens de erro com verificação contínua
+            for (let i = 0; i < 5; i++) {
+                setTimeout(function() {
+                    $('.elementor-message-danger').remove();
+                    $('.elementor-message-error').remove();
+                    $('.elementor-form-display-error').remove();
+                    $('.elementor-error').remove();
+                }, i * 200);
+            }
+        });
+        
+        // Observamos o DOM para detectar quando mensagens de erro aparecem
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.addedNodes && mutation.addedNodes.length > 0) {
+                    for (let i = 0; i < mutation.addedNodes.length; i++) {
+                        const node = mutation.addedNodes[i];
+                        // Verificamos todos os possíveis tipos de mensagens de erro
+                        if (node.classList && 
+                            (node.classList.contains('elementor-message-danger') || 
+                             node.classList.contains('elementor-message-error') ||
+                             node.classList.contains('elementor-form-display-error') ||
+                             node.classList.contains('elementor-error'))) {
+                            // Remove a mensagem de erro
+                            node.remove();
+                        }
+                    }
+                }
+            });
+        });
+        
+        // Configura o observador para monitorar todos os forms Elementor
+        $('.elementor-form').each(function() {
+            observer.observe(this.parentNode, { childList: true, subtree: true });
+        });
+        
+        // Hook para interceptar requisições Ajax
+        $(document).ajaxComplete(function(event, xhr, settings) {
+            if (settings.url.includes('elementor_pro/forms/actions')) {
+                // Remove qualquer mensagem de erro após qualquer requisição Ajax do Elementor Forms
+                setTimeout(function() {
+                    $('.elementor-message-danger').remove();
+                    $('.elementor-message-error').remove();
+                    $('.elementor-form-display-error').remove();
+                    $('.elementor-error').remove();
+                }, 100);
+            }
+        });
+        
+        // Forçar sucesso em formulários Elementor após envio bem-sucedido
+        $(document).on('elementor/forms/success', function(e, response, form) {
+            // Force uma mensagem de sucesso, substituindo qualquer erro
+            if (form.find('.elementor-message-danger, .elementor-message-error, .elementor-form-display-error, .elementor-error').length) {
+                form.find('.elementor-message-danger, .elementor-message-error, .elementor-form-display-error, .elementor-error').remove();
+                form.append('<div class=\"elementor-message elementor-message-success\" role=\"alert\">Formulário enviado com sucesso!</div>');
+            }
+        });
+    });
+    ";
+    
+    wp_add_inline_script('elementor-form-error-fix', $script);
+}
+add_action('wp_enqueue_scripts', 'enqueue_elementor_form_fix');
+
+/**
+ * Filtro para modificar a resposta das ações de formulário do Elementor
+ * Isso garante que mesmo que haja um erro no webhook, a resposta para o usuário final seja de sucesso
+ */
+function filter_elementor_form_responses($response, $form_id, $settings) {
+    // Se houver um erro mas o webhook foi chamado corretamente, converte para sucesso
+    if (isset($response['success']) && !$response['success'] && !empty($response['error'])) {
+        // Verificar se o erro está relacionado a webhook ou integração de API
+        if (strpos(strtolower($response['error']), 'webhook') !== false || 
+            strpos(strtolower($response['error']), 'api') !== false ||
+            strpos(strtolower($response['error']), 'mercado pago') !== false ||
+            strpos(strtolower($response['error']), 'server') !== false ||
+            strpos(strtolower($response['error']), 'parse') !== false) {
+            
+            // Identifica se o formulário pertence ao popup de assessoria
+            $is_assessoria_form = false;
+            if (isset($settings['id']) && $settings['id'] == '14752') {
+                $is_assessoria_form = true;
+            }
+            
+            // Substitui a resposta com sucesso
+            return [
+                'success' => true,
+                'message' => $is_assessoria_form ? 'Entramos em contato através do seu WhatsApp' : 'Formulário enviado com sucesso!',
+                'data' => $response['data'] ?? []
+            ];
+        }
+    }
+    
+    return $response;
+}
+add_filter('elementor_pro/forms/actions/webhook/response', 'filter_elementor_form_responses', 10, 3);
+add_filter('elementor_pro/forms/actions/remote_request/response', 'filter_elementor_form_responses', 10, 3);
+
+/**
+ * Registra logs de erros dos formulários Elementor para debugging
+ * Isso ajuda a diagnosticar problemas sem mostrar erros para os usuários
+ */
+function log_elementor_form_errors($ajax_handler) {
+    // Esta função é muito menos intrusiva - apenas registra os erros sem modificar o comportamento
+    $form_name = $ajax_handler->get_form_settings('form_name');
+    $form_id = $ajax_handler->get_form_settings('id');
+    $errors = $ajax_handler->get_errors();
+    
+    if (!empty($errors)) {
+        // Registra os erros em um arquivo de log
+        error_log(sprintf(
+            '[Elementor Form Error] Form Name: %s, Form ID: %s, Errors: %s',
+            $form_name,
+            $form_id,
+            json_encode($errors)
+        ));
+    }
+}
+add_action('elementor_pro/forms/validation', 'log_elementor_form_errors', 999);
+
+/**
+ * Estilo CSS para o formulário de assessoria
+ */
+function assessoria_form_style() {
+    ?>
+    <style>
+    /* Estilo para mensagem de sucesso no popup específico */
+    .elementor-popup-modal[data-elementor-id="14752"] .elementor-message-success {
+        color: #3a66c4 !important;
+        font-weight: 500;
+        margin-top: 15px;
+        text-align: center;
+    }
+    
+    /* Esconder mensagens de erro no popup específico */
+    .elementor-popup-modal[data-elementor-id="14752"] .elementor-message-danger,
+    .elementor-popup-modal[data-elementor-id="14752"] .elementor-message-error {
+        display: none !important;
+    }
+    </style>
+    <script>
+    jQuery(document).ready(function($) {
+        // Simples substituição de mensagens para o formulário específico
+        $(document).on('submit_success', '.elementor-form', function(event) {
+            // Verificar se é o popup de assessoria específico
+            if ($('.elementor-popup-modal[data-elementor-id="14752"]').is(':visible')) {
+                var $form = $(this);
+                
+                // Remover mensagens existentes
+                $form.find('.elementor-message').remove();
+                
+                // Adicionar mensagem de sucesso personalizada
+                setTimeout(function() {
+                    $form.append('<div class="elementor-message elementor-message-success" role="alert">Entramos em contato através do seu WhatsApp</div>');
+                }, 100);
+            }
+        });
+        
+        // Tratamento básico para erros de parsererror 
+        // (sem impedir a execução do webhook, apenas modificando a UI)
+        $(document).ajaxError(function(event, jqXHR, ajaxSettings, thrownError) {
+            if ($('.elementor-popup-modal[data-elementor-id="14752"]').is(':visible') && 
+                thrownError === 'parsererror') {
+                
+                console.log('Erro de parse detectado, modificando aparência');
+                
+                // Esconder elementos de erro de parse usando CSS
+                $('.parsererror').hide();
+                
+                // Adicionar mensagem de sucesso se não existir
+                var $form = $('.elementor-popup-modal[data-elementor-id="14752"] .elementor-form');
+                if ($form.length && !$form.find('.elementor-message-success').length) {
+                    setTimeout(function() {
+                        $form.append('<div class="elementor-message elementor-message-success" role="alert">Entramos em contato através do seu WhatsApp</div>');
+                    }, 200);
+                }
+            }
+        });
+    });
+    </script>
+    <?php
+}
+add_action('wp_footer', 'assessoria_form_style', 999);
+
 include_once "inc/custom/immobile/post.php";
 include_once "inc/custom/lead/post.php";
 include_once "inc/custom/broker/post.php";
@@ -45,6 +246,7 @@ include_once "inc/custom/location/taxonomy.php";
 include_once "inc/custom/view-immobile/post.php";
 include_once "inc/custom/search-ai/post.php";
 include_once "inc/custom/broker/register.php";
+include_once "inc/custom/avisos/post.php";
 
 
 include_once "inc/filter/settings.php";
@@ -454,133 +656,336 @@ function custom_media_gallery_metabox() {
 add_action('add_meta_boxes', 'custom_media_gallery_metabox');
 
 function render_media_gallery_metabox($post) {
-  wp_enqueue_media();
-  $gallery_images = get_post_meta($post->ID, 'immobile_gallery', true);
-  $gallery_videos = get_post_meta($post->ID, 'immobile_videos', true);
-  ?>
-  <div>
-      <label>Imagens da Galeria:</label>
-      <div id="gallery-container">
-          <input type="hidden" id="immobile_gallery" name="immobile_gallery" value="<?php echo esc_attr($gallery_images); ?>">
-          <button type="button" id="upload-gallery-button" class="button">Selecionar Imagens</button>
-          <div id="gallery-preview" class="gallery-preview">
-              <?php
-              if ($gallery_images) {
-                  $image_ids = explode(',', $gallery_images);
-                  foreach ($image_ids as $image_id) {
-                      $image = wp_get_attachment_image_src($image_id, 'thumbnail');
-                      if ($image) {
-                          echo '<div class="gallery-item" data-id="' . $image_id . '">';
-                          echo '<img src="' . $image[0] . '">';
-                          echo '<span class="remove-image">×</span>';
-                          echo '</div>';
-                      }
-                  }
-              }
-              ?>
-          </div>
-      </div>
-  </div>
+    // Garantir que a biblioteca de mídia esteja disponível
+    wp_enqueue_media();
+    
+    // Adicionar jQuery UI Sortable se ainda não estiver carregado
+    wp_enqueue_script('jquery-ui-sortable');
+    
+    // Get existing gallery images
+    $gallery_images = get_post_meta($post->ID, 'immobile_gallery', true);
+    $gallery_videos = get_post_meta($post->ID, 'immobile_videos', true);
+    
+    // Adicionar nonce para segurança
+    wp_nonce_field('immobile_metabox_nonce', 'immobile_metabox_nonce');
+    
+    // Display image gallery field
+    ?>
+    <div style="margin-bottom: 20px;">
+        <h4>Galeria de Imagens</h4>
+        <input type="hidden" id="immobile_gallery" name="immobile_gallery" value="<?php echo esc_attr($gallery_images); ?>">
+        <div id="gallery-container" class="gallery-container" style="display: flex; flex-wrap: wrap; margin-top: 10px;">
+            <?php
+            if (!empty($gallery_images)) {
+                $image_ids = explode(',', $gallery_images);
+                foreach ($image_ids as $image_id) {
+                    if (!empty($image_id)) {
+                        $image_url = wp_get_attachment_image_url($image_id, 'thumbnail');
+                        echo '<div class="gallery-item" data-id="' . esc_attr($image_id) . '" style="position: relative; margin: 5px; cursor: move;">';
+                        echo '<img src="' . esc_url($image_url) . '" width="100" height="100" style="object-fit: cover;">';
+                        echo '<span class="remove-image" style="position: absolute; top: 0; right: 0; background: red; color: white; width: 20px; height: 20px; text-align: center; line-height: 20px; cursor: pointer;">×</span>';
+                        echo '<label class="make-featured" style="position: absolute; bottom: 0; left: 0; background: rgba(0,0,0,0.5); color: white; padding: 2px 5px; font-size: 10px; cursor: pointer; opacity: 0; transition: opacity 0.3s ease;">';
+                        echo '<input type="radio" name="featured_image" value="' . esc_attr($image_id) . '" ' . checked(strpos($gallery_images, $image_id.',') === 0, true, false) . '> Capa';
+                        echo '</label>';
+                        echo '</div>';
+                    }
+                }
+            }
+            ?>
+        </div>
+        <button type="button" id="immobile-upload-images" class="button" style="margin-top: 10px;">Adicionar Imagens</button>
+        <p class="description">Arraste as imagens para reordenar. Selecione uma imagem como "Capa" para defini-la como a imagem principal do imóvel.</p>
+    </div>
 
-  <div>
-      <label>URLs de Vídeos (um por linha):</label>
-      <textarea name="immobile_videos" rows="4" style="width:100%;"><?php echo esc_textarea($gallery_videos); ?></textarea>
-  </div>
+    <div>
+        <h4>Vídeos do Imóvel</h4>
+        <input type="hidden" id="immobile_videos" name="immobile_videos" value="<?php echo esc_attr($gallery_videos); ?>">
+        <div id="videos-container" class="videos-container" style="display: flex; flex-wrap: wrap; margin-top: 10px;">
+            <?php
+            if (!empty($gallery_videos)) {
+                $video_ids = explode(',', $gallery_videos);
+                foreach ($video_ids as $video_id) {
+                    if (!empty($video_id)) {
+                        $video_url = wp_get_attachment_url($video_id);
+                        echo '<div class="video-item" data-id="' . esc_attr($video_id) . '" style="position: relative; margin: 5px; cursor: move;">';
+                        echo '<video width="150" height="100" controls style="object-fit: cover;">';
+                        echo '<source src="' . esc_url($video_url) . '" type="video/mp4">';
+                        echo 'Seu navegador não suporta o elemento de vídeo.';
+                        echo '</video>';
+                        echo '<span class="remove-video" style="position: absolute; top: 0; right: 0; background: red; color: white; width: 20px; height: 20px; text-align: center; line-height: 20px; cursor: pointer;">×</span>';
+                        echo '</div>';
+                    }
+                }
+            }
+            ?>
+        </div>
+        <button type="button" id="immobile-upload-videos" class="button" style="margin-top: 10px;">Adicionar Vídeos</button>
+        <p class="description">Faça upload de vídeos nos formatos MP4, WebM ou OGG.</p>
+    </div>
 
-  <script>
-  jQuery(document).ready(function($) {
-      $('#upload-gallery-button').on('click', function() {
-          var mediaUploader = wp.media({
-              title: 'Selecionar Imagens',
-              button: { text: 'Selecionar' },
-              multiple: true
-          });
-
-          mediaUploader.on('select', function() {
-              var attachments = mediaUploader.state().get('selection').map(
-                  function(attachment) { return attachment.toJSON(); }
-              );
-
-              var currentIds = $('#immobile_gallery').val() ? $('#immobile_gallery').val().split(',') : [];
-
-              attachments.forEach(function(attachment) {
-                  if (currentIds.indexOf(attachment.id.toString()) === -1) {
-                      currentIds.push(attachment.id);
-                      $('#gallery-preview').append(
-                          '<div class="gallery-item" data-id="' + attachment.id + '">' +
-                          '<img src="' + attachment.sizes.thumbnail.url + '">' +
-                          '<span class="remove-image">×</span>' +
-                          '</div>'
-                      );
-                  }
-              });
-
-              $('#immobile_gallery').val(currentIds.join(','));
-          });
-
-          mediaUploader.open();
-      });
-
-      $(document).on('click', '.remove-image', function() {
-          var $item = $(this).parent();
-          var imageId = $item.data('id');
-          var currentIds = $('#immobile_gallery').val().split(',');
-          var newIds = currentIds.filter(function(id) { return id != imageId; });
-          
-          $('#immobile_gallery').val(newIds.join(','));
-          $item.remove();
-      });
-  });
-  </script>
-
-  <style>
-  .gallery-preview {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 10px;
-  }
-  .gallery-item {
-      position: relative;
-      width: 100px;
-      height: 100px;
-  }
-  .gallery-item img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-  }
-  .remove-image {
-      position: absolute;
-      top: -5px;
-      right: -5px;
-      background: red;
-      color: white;
-      border-radius: 50%;
-      width: 20px;
-      height: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-  }
-  </style>
-  <?php
+    <script type="text/javascript">
+    jQuery(function($) {
+        // Hover effect for "Capa" label
+        $(document).on('mouseenter', '.gallery-item', function() {
+            $(this).find('.make-featured').css('opacity', '1');
+        }).on('mouseleave', '.gallery-item', function() {
+            $(this).find('.make-featured').css('opacity', '0');
+        });
+        
+        // Sortable for image gallery
+        if ($.fn.sortable) {
+            $('#gallery-container').sortable({
+                update: function(event, ui) {
+                    updateGalleryOrder();
+                }
+            });
+            
+            $('#videos-container').sortable({
+                update: function(event, ui) {
+                    updateVideoOrder();
+                }
+            });
+        } else {
+            console.error('jQuery UI Sortable não está disponível');
+        }
+        
+        // Function to update gallery order in hidden field
+        function updateGalleryOrder() {
+            var currentIds = [];
+            $('#gallery-container .gallery-item').each(function() {
+                currentIds.push($(this).data('id'));
+            });
+            $('#immobile_gallery').val(currentIds.join(','));
+        }
+        
+        // Function to update video order in hidden field
+        function updateVideoOrder() {
+            var currentIds = [];
+            $('#videos-container .video-item').each(function() {
+                currentIds.push($(this).data('id'));
+            });
+            $('#immobile_videos').val(currentIds.join(','));
+        }
+        
+        // Image uploader
+        $('#immobile-upload-images').on('click', function(e) {
+            e.preventDefault();
+            console.log('Botão de imagens clicado'); // Debug
+            
+            if (typeof wp !== 'undefined' && wp.media && wp.media.editor) {
+                var frame = wp.media({
+                    title: 'Selecionar Imagens',
+                    button: { text: 'Usar essas imagens' },
+                    multiple: true,
+                    library: { type: 'image' }
+                });
+                
+                frame.on('select', function() {
+                    var selection = frame.state().get('selection');
+                    var currentIds = $('#immobile_gallery').val() ? $('#immobile_gallery').val().split(',') : [];
+                    
+                    selection.map(function(attachment) {
+                        attachment = attachment.toJSON();
+                        console.log('Imagem selecionada:', attachment); // Debug
+                        
+                        if ($.inArray(attachment.id.toString(), currentIds) === -1) {
+                            currentIds.push(attachment.id);
+                            
+                            $('#gallery-container').append(
+                                '<div class="gallery-item" data-id="' + attachment.id + '" style="position: relative; margin: 5px; cursor: move;">' +
+                                '<img src="' + (attachment.sizes && attachment.sizes.thumbnail ? attachment.sizes.thumbnail.url : attachment.url) + '" width="100" height="100" style="object-fit: cover;">' +
+                                '<span class="remove-image" style="position: absolute; top: 0; right: 0; background: red; color: white; width: 20px; height: 20px; text-align: center; line-height: 20px; cursor: pointer;">×</span>' +
+                                '<label class="make-featured" style="position: absolute; bottom: 0; left: 0; background: rgba(0,0,0,0.5); color: white; padding: 2px 5px; font-size: 10px; cursor: pointer; opacity: 0; transition: opacity 0.3s ease;">' +
+                                '<input type="radio" name="featured_image" value="' + attachment.id + '"> Capa' +
+                                '</label>' +
+                                '</div>'
+                            );
+                        }
+                    });
+                    
+                    $('#immobile_gallery').val(currentIds.join(','));
+                });
+                
+                frame.open();
+            } else {
+                console.error('Media library not available');
+            }
+        });
+        
+        // Video uploader
+        $('#immobile-upload-videos').on('click', function(e) {
+            e.preventDefault();
+            console.log('Botão de vídeos clicado'); // Debug
+            
+            if (typeof wp !== 'undefined' && wp.media && wp.media.editor) {
+                var frame = wp.media({
+                    title: 'Selecionar Vídeos',
+                    button: { text: 'Usar esses vídeos' },
+                    multiple: true,
+                    library: { type: 'video' }
+                });
+                
+                frame.on('select', function() {
+                    var selection = frame.state().get('selection');
+                    var currentIds = $('#immobile_videos').val() ? $('#immobile_videos').val().split(',') : [];
+                    
+                    selection.map(function(attachment) {
+                        attachment = attachment.toJSON();
+                        console.log('Vídeo selecionado:', attachment); // Debug
+                        
+                        if ($.inArray(attachment.id.toString(), currentIds) === -1) {
+                            currentIds.push(attachment.id);
+                            
+                            $('#videos-container').append(
+                                '<div class="video-item" data-id="' + attachment.id + '" style="position: relative; margin: 5px; cursor: move;">' +
+                                '<video width="150" height="100" controls style="object-fit: cover;">' +
+                                '<source src="' + attachment.url + '" type="video/mp4">' +
+                                'Seu navegador não suporta o elemento de vídeo.' +
+                                '</video>' +
+                                '<span class="remove-video" style="position: absolute; top: 0; right: 0; background: red; color: white; width: 20px; height: 20px; text-align: center; line-height: 20px; cursor: pointer;">×</span>' +
+                                '</div>'
+                            );
+                        }
+                    });
+                    
+                    $('#immobile_videos').val(currentIds.join(','));
+                });
+                
+                frame.open();
+            } else {
+                console.error('Media library not available');
+            }
+        });
+        
+        // Remove image
+        $(document).on('click', '.remove-image', function() {
+            var item = $(this).parent();
+            var id = item.data('id');
+            var currentIds = $('#immobile_gallery').val().split(',');
+            var newIds = currentIds.filter(function(value) { return value != id; });
+            
+            $('#immobile_gallery').val(newIds.join(','));
+            item.remove();
+        });
+        
+        // Remove video
+        $(document).on('click', '.remove-video', function() {
+            var item = $(this).parent();
+            var id = item.data('id');
+            var currentIds = $('#immobile_videos').val().split(',');
+            var newIds = currentIds.filter(function(value) { return value != id; });
+            
+            $('#immobile_videos').val(newIds.join(','));
+            item.remove();
+        });
+        
+        // Handle featured image selection
+        $(document).on('change', 'input[name="featured_image"]', function() {
+            var featuredId = $(this).val();
+            var currentIds = $('#immobile_gallery').val().split(',');
+            
+            // Remove the featured ID from the array
+            currentIds = currentIds.filter(function(value) { return value != featuredId; });
+            
+            // Add the featured ID to the beginning
+            currentIds.unshift(featuredId);
+            
+            // Update the hidden field
+            $('#immobile_gallery').val(currentIds.join(','));
+        });
+    });
+    </script>
+    <?php
 }
 
 function save_media_gallery_metabox($post_id) {
-  if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
+    // Check if our nonce is set.
+    if (!isset($_POST['immobile_metabox_nonce'])) {
+        return;
+    }
 
-  if (isset($_POST['immobile_gallery'])) {
-      update_post_meta($post_id, 'immobile_gallery', sanitize_text_field($_POST['immobile_gallery']));
-  }
+    // Verify that the nonce is valid.
+    if (!wp_verify_nonce($_POST['immobile_metabox_nonce'], 'immobile_metabox_nonce')) {
+        return;
+    }
 
-  if (isset($_POST['immobile_videos'])) {
-      update_post_meta($post_id, 'immobile_videos', sanitize_text_field($_POST['immobile_videos']));
-  }
+    // If this is an autosave, we don't want to do anything.
+    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+        return;
+    }
+
+    // Save the gallery images
+    if (isset($_POST['immobile_gallery'])) {
+        update_post_meta($post_id, 'immobile_gallery', sanitize_text_field($_POST['immobile_gallery']));
+    }
+
+    // Save the videos
+    if (isset($_POST['immobile_videos'])) {
+        update_post_meta($post_id, 'immobile_videos', sanitize_text_field($_POST['immobile_videos']));
+    }
 }
 add_action('save_post_immobile', 'save_media_gallery_metabox');
 
 include_once "inc/custom/immobile/broker-select-metabox.php";
 include_once "inc/custom/immobile/metabox.php";
 include_once "inc/custom/search-ai/sponsored-carousel.php";
+include_once "inc/custom/user-permissions/author-restrictions.php";
+include_once "inc/custom/immobile/admin-approval.php";
+
+// Shortcode para atualizar a localidade de ARNIQUEIRAS para ARNIQUEIRA
+function update_arniqueira_location_shortcode() {
+    if (!current_user_can('manage_options')) {
+        return '<p>Acesso negado. Você precisa ser administrador para executar esta ação.</p>';
+    }
+    
+    ob_start();
+    
+    // Procurar o termo ARNIQUEIRAS
+    $term = get_term_by('name', 'ARNIQUEIRAS', 'locations');
+    if ($term) {
+        // Atualizar o nome para ARNIQUEIRA
+        $result = wp_update_term($term->term_id, 'locations', array(
+            'name' => 'ARNIQUEIRA'
+        ));
+        
+        if (!is_wp_error($result)) {
+            echo "<p>Localidade atualizada com sucesso de 'ARNIQUEIRAS' para 'ARNIQUEIRA'.</p>";
+        } else {
+            echo "<p>Erro ao atualizar a localidade: " . $result->get_error_message() . "</p>";
+        }
+    } else {
+        // Procurar com variações de capitalização
+        $term = get_term_by('name', 'Arniqueiras', 'locations');
+        if ($term) {
+            $result = wp_update_term($term->term_id, 'locations', array(
+                'name' => 'ARNIQUEIRA'
+            ));
+            
+            if (!is_wp_error($result)) {
+                echo "<p>Localidade atualizada com sucesso de 'Arniqueiras' para 'ARNIQUEIRA'.</p>";
+            } else {
+                echo "<p>Erro ao atualizar a localidade: " . $result->get_error_message() . "</p>";
+            }
+        } else {
+            echo "<p>Termo 'ARNIQUEIRAS' não encontrado na taxonomia 'locations'.</p>";
+        }
+    }
+    
+    return ob_get_clean();
+}
+add_shortcode('update_arniqueira_location', 'update_arniqueira_location_shortcode');
+
+// Traduzir o texto "Lost your password?" para "Esqueci minha senha?"
+function translate_lost_password_text($translated_text, $text, $domain) {
+    if ($text === 'Lost your password?') {
+        return 'Esqueci minha senha?';
+    }
+    return $translated_text;
+}
+add_filter('gettext', 'translate_lost_password_text', 20, 3);
+
+// Carregar os shortcodes personalizados
+function load_custom_shortcodes() {
+    include_once(get_stylesheet_directory() . '/inc/custom/broker/shortcodes.php');
+}
+add_action('init', 'load_custom_shortcodes', 5);

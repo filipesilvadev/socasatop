@@ -28,17 +28,25 @@ const ContactForm = ({ postId, brokerId }) => {
       const data = await response.json();
       
       if (data.success) {
+        // Mostrar informações do corretor brevemente antes de redirecionar
         Swal.fire({
-          title: 'Informações do Corretor',
+          title: 'Redirecionando para o WhatsApp',
           html: `
-            <p><strong>Nome:</strong> ${data.data.broker.name}</p>
-            <p><strong>Email:</strong> ${data.data.broker.email}</p>
-            <p><strong>WhatsApp:</strong> ${data.data.broker.phone}</p>
+            <p>Você será redirecionado para conversar com o corretor via WhatsApp em alguns segundos...</p>
+            <p><strong>Nome do corretor:</strong> ${data.data.broker.name}</p>
           `,
-          icon: 'success'
+          icon: 'success',
+          timer: 3000,
+          timerProgressBar: true,
+          showConfirmButton: false
+        }).then(() => {
+          // Remover o formulário
+          const container = document.getElementById('immobile-contact-form');
+          if (container) container.remove();
+          
+          // Redirecionar para o WhatsApp
+          window.location.href = data.data.whatsapp_url;
         });
-        const container = document.getElementById('immobile-contact-form');
-        if (container) container.remove();
       } else {
         throw new Error(data.data || 'Erro ao processar solicitação');
       }
@@ -122,6 +130,13 @@ const ContactForm = ({ postId, brokerId }) => {
           }
         }, 'Falar com o Corretor'),
         
+        React.createElement('p', {
+          style: {
+            marginBottom: '1rem',
+            fontSize: '0.9rem'
+          }
+        }, 'Preencha seus dados para entrar em contato com o corretor via WhatsApp.'),
+        
         React.createElement('form', { 
           onSubmit: handleSubmit,
           id: 'broker-contact-form'
@@ -193,7 +208,7 @@ const ContactForm = ({ postId, brokerId }) => {
               cursor: loading ? 'not-allowed' : 'pointer'
             },
             id: 'submit-contact-form'
-          }, loading ? 'Enviando...' : 'Ver Contato do Corretor')
+          }, loading ? 'Enviando...' : 'Continuar para o WhatsApp')
         ])
       ])
     ])
