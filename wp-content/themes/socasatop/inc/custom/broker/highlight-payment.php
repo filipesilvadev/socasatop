@@ -687,11 +687,11 @@ function get_mercadopago_config() {
  * Criar o JavaScript para a página de pagamento de destaque
  */
 function create_highlight_payment_js() {
-    $js_dir = __DIR__ . '/assets/js';
+    $js_dir = get_stylesheet_directory() . '/inc/custom/broker/assets/js';
     
     // Criar o diretório se não existir
     if (!file_exists($js_dir)) {
-        mkdir($js_dir, 0755, true);
+        wp_mkdir_p($js_dir);
     }
     
     $js_file = $js_dir . '/highlight-payment.js';
@@ -699,98 +699,143 @@ function create_highlight_payment_js() {
     $js_content = <<<EOT
 (function($) {
     $(document).ready(function() {
-        // Inicializar SDK do Mercado Pago
-        const mp = new MercadoPago(highlight_payment.public_key, {
-            locale: 'pt-BR'
-        });
+        console.log('Highlight Payment JS loaded');
         
-        let cardForm;
+        // Inicializar o Mercado Pago
+        const mp = new MercadoPago(highlight_payment.public_key);
         
-        // Inicializar formulário de cartão
-        cardForm = mp.cardForm({
-            amount: highlight_payment.price.toString(),
+        // Configurar o formulário de cartão
+        const cardForm = mp.cardForm({
+            amount: highlight_payment.price,
             autoMount: true,
             form: {
-                id: "card-form",
+                id: 'card-form',
                 cardholderName: {
-                    id: "cardholderName",
-                    placeholder: "Titular do cartão"
+                    id: 'cardholderName'
+                },
+                cardholderEmail: {
+                    id: 'cardholderEmail',
+                    value: ''
                 },
                 cardNumber: {
-                    id: "cardNumberContainer",
-                    placeholder: "Número do cartão"
+                    id: 'cardNumberContainer',
+                    placeholder: 'Número do cartão'
                 },
                 expirationDate: {
-                    id: "expirationDateContainer",
-                    placeholder: "MM/YY"
+                    id: 'expirationDateContainer',
+                    placeholder: 'MM/YY'
                 },
                 securityCode: {
-                    id: "securityCodeContainer",
-                    placeholder: "CVV"
+                    id: 'securityCodeContainer',
+                    placeholder: 'CVV'
                 },
                 installments: {
-                    id: "installments",
-                    placeholder: "Parcelas"
+                    id: 'installments',
+                    placeholder: 'Parcelas'
                 },
                 identificationType: {
-                    id: "identificationType"
+                    id: 'docType',
+                    placeholder: 'Tipo de documento'
                 },
                 identificationNumber: {
-                    id: "identificationNumber",
-                    placeholder: "Número do documento"
+                    id: 'identificationNumber',
+                    placeholder: 'Número do documento'
+                },
+                issuer: {
+                    id: 'issuer',
+                    placeholder: 'Banco emissor'
                 }
             },
             callbacks: {
-                onFormMounted: error => {
+                onFormMounted: function(error) {
                     if (error) {
-                        console.log("Form Mounted error: ", error);
-                        showError(error);
+                        console.error('Form Mounted error: ', error);
+                        return;
                     }
+                    console.log('Form mounted');
                 },
-                onError: error => {
-                    console.log("Form error: ", error);
-                    showError(error);
+                onFormUnmounted: function(error) {
+                    if (error) {
+                        console.error('Form Unmounted error: ', error);
+                        return;
+                    }
+                    console.log('Form unmounted');
+                },
+                onIdentificationTypesReceived: function(error, identificationTypes) {
+                    if (error) {
+                        console.error('IdentificationTypes error: ', error);
+                        return;
+                    }
+                    console.log('Identification types available: ', identificationTypes);
+                },
+                onPaymentMethodsReceived: function(error, paymentMethods) {
+                    if (error) {
+                        console.error('Payment Methods error: ', error);
+                        return;
+                    }
+                    console.log('Payment Methods available: ', paymentMethods);
+                },
+                onIssuersReceived: function(error, issuers) {
+                    if (error) {
+                        console.error('Issuers error: ', error);
+                        return;
+                    }
+                    console.log('Issuers available: ', issuers);
+                },
+                onInstallmentsReceived: function(error, installments) {
+                    if (error) {
+                        console.error('Installments error: ', error);
+                        return;
+                    }
+                    console.log('Installments available: ', installments);
+                },
+                onCardTokenReceived: function(error, token) {
+                    if (error) {
+                        console.error('Token error: ', error);
+                        return;
+                    }
+                    console.log('Token available: ', token);
+                },
+                onSubmit: function(event) {
+                    event.preventDefault();
+                    
+                    if (!$('#accept-terms').is(':checked')) {
+                        showError('Você precisa aceitar os termos e condições para continuar.');
+                        return;
+                    }
+                    
+                    const cardData = cardForm.getCardFormData();
+                    console.log('CardForm data available: ', cardData);
+                    
+                    if (cardData.token) {
+                        processPayment('new', cardData.token);
+                    } else {
+                        showError('Erro ao processar o cartão. Verifique os dados e tente novamente.');
+                    }
                 }
             }
         });
         
-        // Processar pagamento
-        $('#process-payment').on('click', function() {
-            const termsAccepted = $('#accept-terms').is(':checked');
+        // Manipular cliques no botão de pagamento
+        $('#process-payment').on('click', function(e) {
+            e.preventDefault();
             
-            if (!termsAccepted) {
+            if (!$('#accept-terms').is(':checked')) {
                 showError('Você precisa aceitar os termos e condições para continuar.');
                 return;
             }
             
-            // Verificar se algum cartão salvo foi selecionado
-            const selectedCard = $('input[name="payment_method"]:checked').val();
+            const paymentMethod = $('input[name="payment_method"]:checked').val();
             
-            if (selectedCard) {
-                // Usar cartão existente
-                processPayment(selectedCard);
+            if (paymentMethod === 'new' || !paymentMethod) {
+                // Se o método for cartão novo ou não selecionado, submeter o formulário do cartão
+                $('#card-form').submit();
             } else {
-                // Usar novo cartão
-                const cardFormData = cardForm.getCardFormData();
-                
-                if (!cardFormData.validate) {
-                    showError('Por favor, preencha os dados do cartão corretamente.');
-                    return;
-                }
-                
-                // Criar token do cartão e processar pagamento
-                cardForm.createCardToken()
-                    .then(function(token) {
-                        processPayment(null, token);
-                    })
-                    .catch(function(error) {
-                        console.error("Error creating token:", error);
-                        showError("Erro ao processar o cartão. Verifique os dados e tente novamente.");
-                    });
+                // Senão, processar com o cartão salvo
+                processPayment(paymentMethod);
             }
         });
         
-        // Processar pagamento com cartão selecionado ou novo cartão
         function processPayment(cardId, token = null) {
             // Mostrar loader
             $('#payment-result').show();
@@ -861,7 +906,7 @@ EOT;
 
 // Verificar se o arquivo JS existe e criá-lo se necessário
 function check_highlight_payment_js() {
-    $js_file = __DIR__ . '/assets/js/highlight-payment.js';
+    $js_file = get_stylesheet_directory() . '/inc/custom/broker/assets/js/highlight-payment.js';
     
     if (!file_exists($js_file)) {
         create_highlight_payment_js();

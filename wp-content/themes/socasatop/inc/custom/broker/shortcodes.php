@@ -19,6 +19,9 @@ add_shortcode('broker_dashboard', 'broker_dashboard_shortcode');
 
 // Shortcode para o Formulário de Pagamento para Destacar Imóveis
 function highlight_payment_form_shortcode($atts) {
+    // Incluir o arquivo que contém a função render_payment_settings_page para obter as funções auxiliares
+    include_once(get_template_directory() . '/inc/custom/broker/payment-settings.php');
+    
     // Incluir o arquivo que contém a função highlight_payment_shortcode
     include_once(get_template_directory() . '/inc/custom/broker/highlight-payment.php');
     

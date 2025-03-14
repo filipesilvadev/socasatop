@@ -986,6 +986,25 @@ add_filter('gettext', 'translate_lost_password_text', 20, 3);
 
 // Carregar os shortcodes personalizados
 function load_custom_shortcodes() {
+    // Carregar o arquivo de configurações de pagamento primeiro para disponibilizar funções auxiliares
+    include_once(get_stylesheet_directory() . '/inc/custom/broker/payment-settings.php');
+    
+    // Carregar o arquivo de shortcodes
     include_once(get_stylesheet_directory() . '/inc/custom/broker/shortcodes.php');
+    
+    // Carregar o arquivo de integração com o Mercado Pago
+    include_once(get_stylesheet_directory() . '/inc/custom/immobile/mercadopago.php');
+    
+    // Verificar se os diretórios necessários existem
+    $dirs = array(
+        get_stylesheet_directory() . '/inc/custom/broker/assets',
+        get_stylesheet_directory() . '/inc/custom/broker/assets/js',
+    );
+    
+    foreach ($dirs as $dir) {
+        if (!file_exists($dir)) {
+            wp_mkdir_p($dir);
+        }
+    }
 }
 add_action('init', 'load_custom_shortcodes', 5);

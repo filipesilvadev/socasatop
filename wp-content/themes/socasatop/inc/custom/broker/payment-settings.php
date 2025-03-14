@@ -602,14 +602,13 @@ function render_payment_settings_page() {
 add_shortcode('payment_settings', 'render_payment_settings_page');
 
 /**
- * Obtém os cartões registrados do usuário no Mercado Pago
+ * Obtém os cartões salvos do usuário
  */
 function get_user_mercadopago_cards($user_id) {
-    // Obter os cartões salvos do usuário
     $saved_cards = get_user_meta($user_id, 'mercadopago_cards', true);
     
     if (empty($saved_cards) || !is_array($saved_cards)) {
-        $saved_cards = array();
+        return array();
     }
     
     return $saved_cards;
