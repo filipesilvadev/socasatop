@@ -86,7 +86,14 @@ function display_immobile_template() {
 $current_post_id = get_the_ID();
 $location = get_post_meta($current_post_id, 'location', true);
 $amount = get_post_meta($current_post_id, 'amount', true);
+$disable_social_sharing = get_post_meta($current_post_id, 'disable_social_sharing', true);
 ?>
+
+<?php if ($disable_social_sharing == '1' && current_user_can('administrator')): ?>
+<div class="social-sharing-disabled-alert">
+    <strong>ATENÇÃO:</strong> Este imóvel está desautorizado para publicação nas redes sociais.
+</div>
+<?php endif; ?>
 
 <div class="immobile-header">
     <h1><?php echo esc_html($location); ?></h1>
@@ -178,7 +185,7 @@ $amount = get_post_meta($current_post_id, 'amount', true);
                           <div class="broker-info">
                               <h3><?php echo $broker->display_name; ?></h3>
                               <?php if ($broker->is_sponsor): ?>
-                                  <span class="sponsor-badge">Patrocinador</span>
+                                  <span class="sponsor-badge">Destaque</span>
                               <?php endif; ?>
                               <button 
                                   onclick="openContactForm(<?php echo esc_attr($broker->ID); ?>, <?php echo esc_attr($current_post_id); ?>)"
@@ -207,6 +214,16 @@ $amount = get_post_meta($current_post_id, 'amount', true);
           margin: 0 auto;
       }
 
+      .social-sharing-disabled-alert {
+          padding: 15px;
+          background-color: #ffebee;
+          color: #d32f2f;
+          border: 1px solid #d32f2f;
+          border-radius: 4px;
+          margin-bottom: 15px;
+          font-weight: bold;
+          text-align: center;
+      }
       
       .content-main {
           max-width: 100%;

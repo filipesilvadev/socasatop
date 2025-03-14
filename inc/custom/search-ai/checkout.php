@@ -24,7 +24,7 @@ function render_checkout_patrociados() {
             <h3>Imóveis Selecionados:</h3>
             <ul>
                 <?php foreach ($property_ids as $id): ?>
-                    <li><?php echo get_the_title($id); ?> - R$ 25,00</li>
+                    <li><?php echo get_the_title($id); ?> - R$ 15,00</li>
                 <?php endforeach; ?>
             </ul>
         </div>

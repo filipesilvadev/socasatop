@@ -10,8 +10,35 @@ function add_immobile_metabox() {
         'normal',
         'high'
     );
+    
+    // Adicionar metabox para destacar imóvel
+    add_meta_box(
+        'immobile_sponsored',
+        'Imóvel Destacado',
+        'render_sponsored_metabox',
+        'immobile',
+        'side',
+        'high'
+    );
 }
 add_action('add_meta_boxes', 'add_immobile_metabox');
+
+function render_sponsored_metabox($post) {
+    wp_nonce_field('immobile_sponsored_nonce', 'immobile_sponsored_nonce');
+    
+    $is_sponsored = get_post_meta($post->ID, 'is_sponsored', true) === 'yes';
+    ?>
+    <div style="padding: 10px 0;">
+        <label>
+            <input type="checkbox" name="is_sponsored" value="yes" <?php checked($is_sponsored); ?> />
+            Marcar como Imóvel Destacado
+        </label>
+        <p class="description">
+            Imóveis destacados aparecem no carrossel de destaques e são priorizados nas buscas.
+        </p>
+    </div>
+    <?php
+}
 
 function render_immobile_metabox($post) {
     wp_nonce_field('immobile_metabox_nonce', 'immobile_metabox_nonce');
@@ -182,6 +209,14 @@ function save_immobile_metabox($post_id) {
         if (isset($_POST[$field])) {
             update_post_meta($post_id, $field, sanitize_text_field($_POST[$field]));
         }
+    }
+    
+    // Salvar campo de imóvel destacado
+    if (isset($_POST['immobile_sponsored_nonce']) && 
+        wp_verify_nonce($_POST['immobile_sponsored_nonce'], 'immobile_sponsored_nonce')) {
+        
+        $is_sponsored = isset($_POST['is_sponsored']) ? 'yes' : 'no';
+        update_post_meta($post_id, 'is_sponsored', $is_sponsored);
     }
 }
 add_action('save_post_immobile', 'save_immobile_metabox');

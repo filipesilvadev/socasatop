@@ -15,8 +15,8 @@ function create_immobile_flow() {
 
     $marketing_products = [
       'patrocinado' => [
-          'name' => 'Patrocinado',
-          'price' => 99,
+          'name' => 'Destaque',
+          'price' => 15.00,
           'description' => 'Tenha seu imóvel destacado no topo das buscas.'
       ],
       'assessoria' => [
@@ -36,11 +36,15 @@ function create_immobile_flow() {
       ]
     ];
 
+    wp_enqueue_script('jquery-ui-sortable');
     wp_enqueue_script('mercadopago-js', 'https://sdk.mercadopago.com/js/v2', [], null, true);
+    
+    // Adicionar timestamp para forçar o recarregamento do script
+    $timestamp = time();
 
     ob_start();
     ?>
-    <div class="immobile-create-flow-container">
+    <div class="immobile-create-flow-container" data-version="<?php echo $timestamp; ?>">
         <div class="flow-navigation">
             <div class="nav-step active" data-step="1">
                 <span class="step-number">1</span>
@@ -163,7 +167,19 @@ function create_immobile_flow() {
                                 <input type="hidden" id="immobile_videos" name="immobile_videos" />
                                 <button type="button" id="upload_videos_button" class="upload-button">Adicionar Vídeos</button>
                                 <div id="videos_preview" class="videos-preview"></div>
-                                <small class="form-text text-muted">Formatos aceitos: MP4, WebM (máx. 128MB)</small>
+                                <p class="description">Arraste os vídeos para reordenar. Formatos aceitos: MP4, WebM (máx. 128MB)</p>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="disable_social_media">Opções de Publicação</label>
+                                <div class="checkbox-wrapper">
+                                    <input type="checkbox" name="disable_social_media" id="disable_social_media">
+                                    <label for="disable_social_media">Não publicar nas redes sociais</label>
+                                </div>
+                            </div>
+
+                            <div id="immobile-creation-form-message" class="approval-notice">
+                                <p>O imóvel cadastrado passará por uma análise antes de ser publicado. Você receberá uma notificação quando ele for aprovado.</p>
                             </div>
 
                             <button type="submit" class="save-button">Salvar</button>
@@ -187,9 +203,14 @@ function create_immobile_flow() {
             </div>
         </div>
 
-        <div class="flow-actions">
+        <div class="flow-actions top-actions">
+            <button id="prev-step-top" style="display:none;" class="nav-button">Voltar</button>
+            <button id="next-step-top" style="display:none;" class="nav-button">Próximo</button>
+        </div>
+
+        <div class="flow-actions bottom-actions">
             <button id="prev-step" style="display:none;" class="nav-button">Voltar</button>
-            <button id="next-step" class="nav-button">Próximo</button>
+            <button id="next-step" style="display:none;" class="nav-button">Próximo</button>
         </div>
     </div>
 
@@ -557,10 +578,48 @@ function create_immobile_flow() {
       padding:0;
     }
 }
+
+.flow-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 30px;
+}
+
+.right-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.assessoria-button {
+    background-color: #28a745;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Estilo para o wrapper do checkbox */
+.checkbox-wrapper {
+    display: flex;
+    align-items: center;
+    margin-top: 5px;
+}
+
+/* Estilo para o checkbox */
+.checkbox-wrapper input[type="checkbox"] {
+    margin-right: 10px;
+}
+
+/* Estilo para o label do checkbox */
+.checkbox-wrapper label {
+    font-weight: normal;
+}
     </style>
 
 <script>
     jQuery(document).ready(function($) {
+        console.log('Script de criação de imóveis carregado');
+        
         if (typeof MercadoPago === 'undefined') {
             console.error('MercadoPago não foi carregado');
             return;
@@ -571,6 +630,9 @@ function create_immobile_flow() {
         const mp = new MercadoPago('TEST-70b46d06-add9-499a-942e-0f5c01b8769a');
 
         $('#amount').mask('000.000.000.000.000,00', {reverse: true});
+        
+        // Inicializar a visibilidade do botão Next
+        updateNextButtonVisibility();
 
         $('#immobile-creation-form').on('submit', function(e) {
             e.preventDefault();
@@ -589,11 +651,25 @@ function create_immobile_flow() {
             this.reset();
             $('#gallery_preview').empty();
             $('#videos_preview').empty();
+            
+            // Mostrar botões Next quando houver pelo menos um imóvel
+            if (immobileList.length > 0) {
+                $('#next-step').show();
+                $('#next-step-top').show();
+            }
+            
+            // Disparar evento de imóvel adicionado
+            $(document).trigger('immobile_added', [immobile]);
         });
 
         function updateImmobileList() {
             const $list = $('#immobile-list');
             $list.empty();
+            
+            if (immobileList.length === 0) {
+                $list.html('<p>Nenhum imóvel cadastrado ainda.</p>');
+                return;
+            }
             
             immobileList.forEach((immobile, index) => {
                 const previewImage = $(immobile.gallery_preview).first().prop('outerHTML') || '';
@@ -606,12 +682,17 @@ function create_immobile_flow() {
                     </div>
                 `);
             });
+            
+            updateNextButtonVisibility();
         }
 
         $(document).on('click', '.remove-immobile', function() {
             const index = $(this).data('index');
             immobileList.splice(index, 1);
             updateImmobileList();
+            
+            // Atualizar visibilidade dos botões Next
+            updateNextButtonVisibility();
         });
 
         function updateMarketingSection() {
@@ -773,12 +854,14 @@ function create_immobile_flow() {
                         success: function(response) {
                             if (response.success) {
                                 Swal.fire({
-                                    title: 'Sucesso!',
-                                    text: 'Cartão validado com sucesso! Você terá 30 dias grátis.',
-                                    icon: 'success',
-                                    confirmButtonText: 'OK'
-                                }).then(() => {
-                                    window.location.href = '/meus-imoveis';
+                                    title: 'Imóvel Enviado para Aprovação',
+                                    text: 'Seu imóvel foi enviado para aprovação. Você será notificado por email assim que ele for avaliado.',
+                                    icon: 'info',
+                                    confirmButtonText: 'Entendi'
+                                }).then((result) => {
+                                    if (result.isConfirmed) {
+                                        window.location.href = '/meus-imoveis';
+                                    }
                                 });
                                 resolve();
                             } else {
@@ -826,7 +909,7 @@ function create_immobile_flow() {
     $summaryList.empty();
     
     immobileList.forEach((immobile, index) => {
-        let immobileTotal = 25; // Valor base do imóvel
+        let immobileTotal = 15; // Valor base do imóvel
         const selectedProducts = [];
 
         $(`input[name="marketing_products[${index}][]"]:checked`).each(function() {
@@ -923,6 +1006,16 @@ function create_immobile_flow() {
                 }
             }
         });
+
+        function updateNextButtonVisibility() {
+            if (immobileList.length > 0) {
+                $('#next-step').show();
+                $('#next-step-top').show();
+            } else {
+                $('#next-step').hide();
+                $('#next-step-top').hide();
+            }
+        }
     });
     </script>
     <?php

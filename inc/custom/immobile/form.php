@@ -146,7 +146,40 @@ $offer_types = $immobile_options['offer_types'];
         </div>
     </div>
 
+    <div class="form-wrapper not-recommended-wrapper">
+        <label for="disable_social_sharing" class="not-recommended-label">
+            <input type="checkbox" name="disable_social_sharing" id="disable_social_sharing">
+            Desautorizar publicação nas redes sociais <span class="not-recommended-tag">(Não recomendado)</span>
+        </label>
+    </div>
+
     <button type="submit" class="btn btn-info">
         Cadastrar Imóvel
     </button>
 </form>
+
+<style>
+    .not-recommended-wrapper {
+        margin-top: 20px;
+        padding: 10px;
+        border: 1px solid #ffcccc;
+        background-color: #fff5f5;
+        border-radius: 5px;
+    }
+    
+    .not-recommended-label {
+        display: flex;
+        align-items: center;
+        color: #d32f2f;
+        font-weight: bold;
+    }
+    
+    .not-recommended-tag {
+        margin-left: 5px;
+        font-size: 0.8em;
+        background-color: #d32f2f;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 3px;
+    }
+</style>

@@ -123,6 +123,17 @@ function render_immobile_metabox($post) {
         </div>
         <?php
     }
+    
+    // Campo para desautorizar publicação em redes sociais
+    $disable_social_sharing = get_post_meta($post->ID, 'disable_social_sharing', true);
+    ?>
+    <div class="immobile-field full-width not-recommended-wrapper">
+        <label class="not-recommended-label">
+            <input type="checkbox" name="disable_social_sharing" id="disable_social_sharing" value="1" <?php checked($disable_social_sharing, '1'); ?>>
+            Desautorizar publicação nas redes sociais <span class="not-recommended-tag">(Não recomendado)</span>
+        </label>
+    </div>
+    <?php
 
     echo '</div>';
     
@@ -158,6 +169,35 @@ function render_immobile_metabox($post) {
         border: 1px solid #ddd;
         border-radius: 4px;
     }
+
+    .not-recommended-wrapper {
+        margin-top: 20px;
+        padding: 10px;
+        border: 1px solid #ffcccc;
+        background-color: #fff5f5;
+        border-radius: 5px;
+    }
+    
+    .not-recommended-label {
+        display: flex;
+        align-items: center;
+        color: #d32f2f;
+        font-weight: bold;
+    }
+    
+    .not-recommended-label input[type="checkbox"] {
+        width: auto;
+        margin-right: 10px;
+    }
+    
+    .not-recommended-tag {
+        margin-left: 5px;
+        font-size: 0.8em;
+        background-color: #d32f2f;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 3px;
+    }
     </style>
     <?php
 }
@@ -183,5 +223,8 @@ function save_immobile_metabox($post_id) {
             update_post_meta($post_id, $field, sanitize_text_field($_POST[$field]));
         }
     }
+    
+    // Salvar campo de desautorização de redes sociais
+    update_post_meta($post_id, 'disable_social_sharing', isset($_POST['disable_social_sharing']) ? '1' : '0');
 }
 add_action('save_post_immobile', 'save_immobile_metabox');

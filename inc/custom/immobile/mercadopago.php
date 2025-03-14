@@ -43,7 +43,7 @@ class Immobile_Payment {
         foreach ($subscriptions as $subscription) {
             $this->process_payment([
                 'token' => $subscription->card_token,
-                'transaction_amount' => 25.00,
+                'transaction_amount' => 15.00,
                 'installments' => 1,
                 'description' => 'Renovação de Anúncio - Imóvel #' . $subscription->immobile_id,
                 'payer' => [
@@ -76,7 +76,7 @@ class Immobile_Payment {
                 $immobile = get_post($subscription->immobile_id);
                 
                 $message = "Olá! Seu anúncio '{$immobile->post_title}' será renovado em $days dias. 
-                           O valor de R$ 25,00 será debitado automaticamente do seu cartão cadastrado.";
+                           O valor de R$ 15,00 será debitado automaticamente do seu cartão cadastrado.";
                 
                 wp_mail(
                     $user->user_email,

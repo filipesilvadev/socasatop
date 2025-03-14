@@ -6,10 +6,10 @@ document.addEventListener('DOMContentLoaded', function() {
       const [currentIndex, setCurrentIndex] = useState(0);
 
       useEffect(() => {
-          if (properties.length <= 3) return;
+          if (properties.length <= 1) return;
 
           const interval = setInterval(() => {
-              setCurrentIndex(current => (current + 1) % Math.max(0, properties.length - 2));
+              setCurrentIndex(current => (current + 1) % properties.length);
           }, 5000);
 
           return () => clearInterval(interval);
@@ -17,9 +17,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
       if (properties.length === 0) return null;
 
+      console.log('Total de imóveis destacados:', properties.length);
+
       const getVisibleProperties = () => {
+          if (properties.length <= 3) {
+              return properties;
+          }
+          
           const visibleItems = [];
-          for (let i = 0; i < Math.min(3, properties.length); i++) {
+          for (let i = 0; i < 3; i++) {
               const index = (currentIndex + i) % properties.length;
               visibleItems.push(properties[index]);
           }
@@ -33,13 +39,32 @@ document.addEventListener('DOMContentLoaded', function() {
               currency: 'BRL'
           }).format(value);
       };
+      
+      const goToPrevious = () => {
+          setCurrentIndex(current => 
+              current === 0 ? properties.length - 1 : current - 1
+          );
+      };
+      
+      const goToNext = () => {
+          setCurrentIndex(current => 
+              (current + 1) % properties.length
+          );
+      };
 
       return React.createElement('div', {
-          className: 'sponsored-carousel w-full max-w-7xl mx-auto px-4'
+          className: 'sponsored-carousel w-full max-w-7xl mx-auto px-4 relative'
       }, [
           React.createElement('h2', {
               className: 'text-2xl font-bold mb-6 text-center'
           }, 'Imóveis em Destaque'),
+          
+          properties.length > 3 && React.createElement('button', {
+              className: 'carousel-nav prev absolute left-0 top-1/2 transform -translate-y-1/2 bg-blue-600 text-white rounded-full w-10 h-10 flex items-center justify-center z-10 hover:bg-blue-700 focus:outline-none',
+              onClick: goToPrevious,
+              'aria-label': 'Anterior'
+          }, '←'),
+          
           React.createElement('div', {
               className: 'grid grid-cols-1 md:grid-cols-3 gap-6 carrosel-patrocinados'
           }, getVisibleProperties().map((property, index) => 
@@ -75,13 +100,57 @@ document.addEventListener('DOMContentLoaded', function() {
                       ])
                   ])
               )
+          )),
+          
+          properties.length > 3 && React.createElement('button', {
+              className: 'carousel-nav next absolute right-0 top-1/2 transform -translate-y-1/2 bg-blue-600 text-white rounded-full w-10 h-10 flex items-center justify-center z-10 hover:bg-blue-700 focus:outline-none',
+              onClick: goToNext,
+              'aria-label': 'Próximo'
+          }, '→'),
+          
+          properties.length > 3 && React.createElement('div', {
+              className: 'pagination-dots flex justify-center mt-4 space-x-2'
+          }, Array.from({ length: properties.length }).map((_, i) => 
+              React.createElement('button', {
+                  key: `dot-${i}`,
+                  className: `pagination-dot w-3 h-3 rounded-full ${currentIndex === i ? 'bg-blue-600' : 'bg-gray-300'}`,
+                  onClick: () => setCurrentIndex(i),
+                  'aria-label': `Ir para slide ${i + 1}`
+              })
           ))
       ]);
   };
 
-  // Montagem do componente
   const container = document.getElementById('sponsored-carousel-root');
   if (container) {
       ReactDOM.render(React.createElement(SponsoredCarousel), container);
   }
+  
+  const style = document.createElement('style');
+  style.textContent = `
+      .sponsored-carousel {
+          position: relative;
+          padding: 0 40px;
+      }
+      .carousel-nav {
+          opacity: 0.7;
+          transition: opacity 0.3s;
+      }
+      .carousel-nav:hover {
+          opacity: 1;
+      }
+      .carrosel-patrocinados {
+          min-height: 300px;
+      }
+      @media (max-width: 768px) {
+          .sponsored-carousel {
+              padding: 0 20px;
+          }
+          .carousel-nav {
+              width: 30px;
+              height: 30px;
+          }
+      }
+  `;
+  document.head.appendChild(style);
 });
