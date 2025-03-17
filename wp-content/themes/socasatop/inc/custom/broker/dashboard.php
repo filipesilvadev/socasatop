@@ -5,38 +5,115 @@
 
 // Função para renderizar o conteúdo do dashboard
 function broker_dashboard_content($atts) {
+    error_log('Iniciando broker_dashboard_content');
+    
     if (!is_user_logged_in()) {
-        return 'Você precisa estar logado para acessar o painel de corretor.';
+        error_log('Dashboard de corretores: Usuário não está logado');
+        return '<div class="notice notice-error">
+            <p>Você precisa estar logado para acessar o painel de corretor.</p>
+            <p><a href="' . wp_login_url(get_permalink()) . '" class="button">Fazer Login</a></p>
+        </div>';
     }
 
     $user = wp_get_current_user();
-    if (!in_array('author', (array) $user->roles)) {
-        return 'Acesso restrito a corretores.';
+    error_log('Dashboard de corretores: Usuário #' . $user->ID . ' com roles: ' . implode(', ', $user->roles));
+    
+    if (!in_array('author', (array) $user->roles) && !in_array('administrator', (array) $user->roles)) {
+        error_log('Dashboard de corretores: Usuário não tem permissão de corretor');
+        return '<div class="notice notice-error">
+            <p>Acesso restrito a corretores.</p>
+            <p>Se você é um corretor e está vendo esta mensagem, por favor entre em contato com o suporte.</p>
+        </div>';
     }
 
+    // Verificar se os arquivos necessários existem
+    $js_file = get_stylesheet_directory() . '/inc/custom/broker/assets/js/broker-dashboard.js';
+    if (!file_exists($js_file)) {
+        error_log('Dashboard de corretores: Arquivo JavaScript não encontrado: ' . $js_file);
+        return '<div class="notice notice-error">
+            <p>Erro ao carregar recursos necessários.</p>
+            <p>Por favor, contate o suporte técnico informando o erro: DASH-001</p>
+        </div>';
+    }
+
+    // Carregar jQuery primeiro (embora normalmente já esteja carregado no WordPress)
+    wp_enqueue_script('jquery');
+
     // Carregar React e Chart.js para o dashboard dinâmico
-    wp_enqueue_script('react', 'https://unpkg.com/react@17/umd/react.production.min.js', array(), '17.0.0', true);
+    wp_enqueue_script('react', 'https://unpkg.com/react@17/umd/react.production.min.js', array('jquery'), '17.0.0', true);
     wp_enqueue_script('react-dom', 'https://unpkg.com/react-dom@17/umd/react-dom.production.min.js', array('react'), '17.0.0', true);
-    wp_enqueue_script('chart-js', 'https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js', array(), '3.7.1', true);
+    wp_enqueue_script('chart-js', 'https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js', array('jquery'), '3.7.1', true);
     
     // Carregar Font Awesome
     wp_enqueue_style('font-awesome', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css', array(), '5.15.3');
     
-    // Carregar o script do dashboard
-    wp_enqueue_script('broker-dashboard', get_stylesheet_directory_uri() . '/inc/custom/broker/assets/js/broker-dashboard.js', array('jquery', 'react', 'react-dom', 'chart-js'), wp_rand(), true);
+    // Carregar estilos do dashboard
+    wp_enqueue_style('broker-dashboard', get_stylesheet_directory_uri() . '/inc/custom/broker/assets/css/broker-dashboard.css', array(), wp_rand());
+    
+    // Carregar o script do dashboard com versão aleatória para evitar cache
+    $version = wp_rand();
+    wp_enqueue_script('broker-dashboard', get_stylesheet_directory_uri() . '/inc/custom/broker/assets/js/broker-dashboard.js', array('jquery', 'react', 'react-dom', 'chart-js'), $version, true);
+    
+    // Verificar se os scripts foram enfileirados corretamente
+    $scripts_status = array();
+    $scripts_status['jquery'] = wp_script_is('jquery', 'enqueued');
+    $scripts_status['react'] = wp_script_is('react', 'enqueued');
+    $scripts_status['react_dom'] = wp_script_is('react-dom', 'enqueued');
+    $scripts_status['chart_js'] = wp_script_is('chart-js', 'enqueued');
+    $scripts_status['broker_dashboard'] = wp_script_is('broker-dashboard', 'enqueued');
+    
+    error_log('Dashboard de corretores: Status dos scripts - ' . json_encode($scripts_status));
+    
+    if (array_search(false, $scripts_status) !== false) {
+        error_log('Dashboard de corretores: Alguns scripts não foram enfileirados corretamente');
+        return '<div class="notice notice-error">
+            <p>Erro ao carregar recursos necessários.</p>
+            <p>Por favor, contate o suporte técnico informando o erro: DASH-002</p>
+        </div>';
+    }
     
     // Localizar script com variáveis necessárias para as requisições AJAX
     wp_localize_script('broker-dashboard', 'site', array(
         'ajax_url' => admin_url('admin-ajax.php'),
         'nonce' => wp_create_nonce('ajax_nonce'),
-        'theme_url' => get_stylesheet_directory_uri()
+        'theme_url' => get_stylesheet_directory_uri(),
+        'debug' => WP_DEBUG,
+        'user' => array(
+            'id' => $user->ID,
+            'name' => $user->display_name,
+            'roles' => $user->roles
+        ),
+        'scripts_loaded' => $scripts_status
     ));
+
+    // Adicionar script inline para debug
+    wp_add_inline_script('broker-dashboard', '
+        console.log("Dashboard de corretores: Iniciando carregamento");
+        console.log("Status dos scripts:", site.scripts_loaded);
+        console.log("Informações do usuário:", site.user);
+        
+        document.addEventListener("DOMContentLoaded", function() {
+            console.log("Dashboard de corretores: DOM carregado");
+            if (typeof React === "undefined") {
+                console.error("React não está carregado");
+            }
+            if (typeof ReactDOM === "undefined") {
+                console.error("ReactDOM não está carregado");
+            }
+            if (typeof Chart === "undefined") {
+                console.error("Chart.js não está carregado");
+            }
+            if (typeof jQuery === "undefined") {
+                console.error("jQuery não está carregado");
+            }
+        });
+    ', 'before');
 
     ob_start();
     ?>
     <div class="broker-dashboard">
         <!-- Seção para o gráfico de métricas -->
-        <div class="metrics-section mb-8">
+        <div class="metrics-section">
             <h2>Métricas do Corretor</h2>
             <div class="chart-container" style="position: relative; height: 300px; margin-top: 20px;">
                 <canvas id="broker-metrics-chart"></canvas>
@@ -627,12 +704,18 @@ function broker_dashboard_content($atts) {
 
 // Função para atualizar o JavaScript do dashboard
 function update_broker_dashboard_js() {
-    $js_path = get_template_directory() . '/inc/custom/broker/assets/js/broker-dashboard.js';
+    $js_path = get_stylesheet_directory() . '/inc/custom/broker/assets/js/broker-dashboard.js';
     
     // Criar diretório de assets se não existir
     $dir_path = dirname($js_path);
     if (!file_exists($dir_path)) {
-        mkdir($dir_path, 0755, true);
+        try {
+            if (!@mkdir($dir_path, 0755, true)) {
+                error_log('Não foi possível criar o diretório: ' . $dir_path);
+            }
+        } catch (Exception $e) {
+            error_log('Erro ao criar diretório: ' . $e->getMessage());
+        }
     }
     
     $js_content = <<<EOT
@@ -779,19 +862,20 @@ function update_broker_dashboard_js() {
                 },
                 success: function(response) {
                     if (response.success) {
-                        const $propertyItem = $('.property-item[data-property-id="' + propertyId + '"]');
+                        // Inicializar as variáveis
+                        var propertyItem = $('.property-item[data-property-id="' + propertyId + '"]');
                         
                         // Remover tag de destaque
-                        $propertyItem.find('.sponsored-tag').remove();
+                        propertyItem.find('.sponsored-tag').remove();
                         
                         // Substituir botão de pausar por botão de destacar
-                        const $actionButtons = $propertyItem.find('.property-actions');
-                        $actionButtons.find('.pause-highlight-button').remove();
+                        var actionButtons = propertyItem.find('.property-actions');
+                        actionButtons.find('.pause-highlight-button').remove();
                         
                         const highlightUrl = '/corretores/destacar-imovel/?immobile_id=' + propertyId;
                         const highlightButton = '<a href="' + highlightUrl + '" class="action-button highlight-button" title="Reativar Destaque"><i class="fas fa-star"></i></a>';
                         
-                        $actionButtons.find('.edit-button').after(highlightButton);
+                        actionButtons.find('.edit-button').after(highlightButton);
                         
                         alert('Destaque do imóvel pausado com sucesso!');
                     } else {
@@ -854,7 +938,34 @@ function update_broker_dashboard_js() {
 EOT;
     
     // Salvar o arquivo JavaScript
-    file_put_contents($js_path, $js_content);
+    try {
+        // Garantir que estamos usando o caminho correto do tema atual e não do hello-elementor
+        $theme_dir = get_stylesheet_directory();
+        $js_path = $theme_dir . '/inc/custom/broker/assets/js/broker-dashboard.js';
+        
+        // Verificar se o diretório existe ou criar
+        $dir_path = dirname($js_path);
+        if (!file_exists($dir_path)) {
+            try {
+                if (!@mkdir($dir_path, 0755, true)) {
+                    error_log('Não foi possível criar o diretório para o arquivo JS: ' . $dir_path);
+                    return;
+                }
+            } catch (Exception $e) {
+                error_log('Erro ao criar diretório para o arquivo JS: ' . $e->getMessage());
+                return;
+            }
+        }
+        
+        // Verificar se o diretório tem permissão de escrita
+        if (is_writable($dir_path)) {
+            file_put_contents($js_path, $js_content);
+        } else {
+            error_log('Diretório sem permissão de escrita: ' . $dir_path);
+        }
+    } catch (Exception $e) {
+        error_log('Erro ao salvar arquivo JS: ' . $e->getMessage());
+    }
 }
 
 // Atualizar JS ao ativar o tema
@@ -862,7 +973,7 @@ add_action('after_switch_theme', 'update_broker_dashboard_js');
 
 // Função para verificar se é necessário atualizar o JS
 function check_and_update_broker_dashboard_js() {
-    $js_path = get_template_directory() . '/inc/custom/broker/assets/js/broker-dashboard.js';
+    $js_path = get_stylesheet_directory() . '/inc/custom/broker/assets/js/broker-dashboard.js';
     
     if (!file_exists($js_path)) {
         update_broker_dashboard_js();
@@ -870,74 +981,87 @@ function check_and_update_broker_dashboard_js() {
 }
 add_action('init', 'check_and_update_broker_dashboard_js');
 
-function get_broker_metrics() {
-    check_ajax_referer('ajax_nonce', 'nonce');
-    
-    if (!is_user_logged_in()) {
-        wp_send_json_error('Usuário não autenticado');
+// Verificar se a função já existe antes de declará-la
+if (!function_exists('get_broker_metrics')) {
+    function get_broker_metrics() {
+        check_ajax_referer('ajax_nonce', 'nonce');
+        
+        if (!is_user_logged_in()) {
+            wp_send_json_error('Usuário não autenticado');
+        }
+
+        $user_id = get_current_user_id();
+        $last_30_days = array();
+        
+        for ($i = 0; $i < 30; $i++) {
+            $date = date('Y-m-d', strtotime("-$i days"));
+            $views = get_user_meta($user_id, "metrics_views_{$date}", true) ?: 0;
+            $clicks = get_user_meta($user_id, "metrics_clicks_{$date}", true) ?: 0;
+            $conversions = get_user_meta($user_id, "metrics_conversions_{$date}", true) ?: 0;
+
+            $last_30_days[] = array(
+                'date' => $date,
+                'views' => (int)$views,
+                'clicks' => (int)$clicks,
+                'conversions' => (int)$conversions
+            );
+        }
+
+        wp_send_json_success(array('metrics' => array_reverse($last_30_days)));
     }
-
-    $user_id = get_current_user_id();
-    $last_30_days = array();
-    
-    for ($i = 0; $i < 30; $i++) {
-        $date = date('Y-m-d', strtotime("-$i days"));
-        $views = get_user_meta($user_id, "metrics_views_{$date}", true) ?: 0;
-        $clicks = get_user_meta($user_id, "metrics_clicks_{$date}", true) ?: 0;
-        $conversions = get_user_meta($user_id, "metrics_conversions_{$date}", true) ?: 0;
-
-        $last_30_days[] = array(
-            'date' => $date,
-            'views' => (int)$views,
-            'clicks' => (int)$clicks,
-            'conversions' => (int)$conversions
-        );
-    }
-
-    wp_send_json_success(array('metrics' => array_reverse($last_30_days)));
 }
 add_action('wp_ajax_get_broker_metrics', 'get_broker_metrics');
 
-function get_broker_properties() {
-    check_ajax_referer('ajax_nonce', 'nonce');
-    
-    if (!is_user_logged_in()) {
-        wp_send_json_error('Usuário não autenticado');
-    }
-
-    $user_id = get_current_user_id();
-    
-    $args = array(
-        'post_type' => 'immobile',
-        'posts_per_page' => -1,
-        'post_status' => array('publish', 'pending', 'draft'),
-        'meta_query' => array(
-            array(
-                'key' => 'broker',
-                'value' => $user_id
-            )
-        )
-    );
-
-    $query = new WP_Query($args);
-    $properties = array();
-
-    while ($query->have_posts()) {
-        $query->the_post();
-        $post_id = get_the_ID();
+// Verificar se a função já existe antes de declará-la
+if (!function_exists('get_broker_properties')) {
+    function get_broker_properties() {
+        // Garantir que nenhum conteúdo seja enviado antes do JSON
+        ob_clean();
         
-        $properties[] = array(
-            'id' => $post_id,
-            'title' => get_the_title(),
-            'status' => get_post_status(),
-            'views' => (int)get_post_meta($post_id, 'total_views', true) ?: 0,
-            'clicks' => (int)get_post_meta($post_id, 'total_clicks', true) ?: 0,
-            'conversions' => (int)get_post_meta($post_id, 'total_conversions', true) ?: 0,
-            'sponsored' => get_post_meta($post_id, 'is_sponsored', true) === 'yes'
-        );
-    }
+        check_ajax_referer('ajax_nonce', 'nonce');
+        
+        if (!is_user_logged_in()) {
+            wp_send_json_error('Usuário não autenticado');
+        }
 
-    wp_reset_postdata();
-    wp_send_json_success(array('properties' => $properties));
+        $user_id = get_current_user_id();
+        
+        $args = array(
+            'post_type' => 'immobile',
+            'posts_per_page' => -1,
+            'post_status' => array('publish', 'pending', 'draft'),
+            'meta_query' => array(
+                array(
+                    'key' => 'broker',
+                    'value' => $user_id
+                )
+            )
+        );
+
+        $query = new WP_Query($args);
+        $properties = array();
+
+        while ($query->have_posts()) {
+            $query->the_post();
+            $post_id = get_the_ID();
+            
+            $properties[] = array(
+                'id' => $post_id,
+                'title' => get_the_title(),
+                'status' => get_post_status(),
+                'views' => (int)get_post_meta($post_id, 'total_views', true) ?: 0,
+                'clicks' => (int)get_post_meta($post_id, 'total_clicks', true) ?: 0,
+                'conversions' => (int)get_post_meta($post_id, 'total_conversions', true) ?: 0,
+                'sponsored' => get_post_meta($post_id, 'is_sponsored', true) === 'yes'
+            );
+        }
+
+        wp_reset_postdata();
+        
+        // Garantir que a resposta seja um JSON válido
+        header('Content-Type: application/json');
+        echo json_encode(array('success' => true, 'data' => array('properties' => $properties)));
+        exit;
+    }
 }
 add_action('wp_ajax_get_broker_properties', 'get_broker_properties');

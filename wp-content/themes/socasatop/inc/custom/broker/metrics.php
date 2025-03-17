@@ -95,4 +95,5 @@ function get_broker_immobile_list() {
 
     wp_send_json_success(array('properties' => $formatted_properties));
 }
-add_action('wp_ajax_get_broker_properties', 'get_broker_immobile_list');
+// Comentando esta linha para evitar conflito com a mesma ação em dashboard.php
+// add_action('wp_ajax_get_broker_properties', 'get_broker_immobile_list');

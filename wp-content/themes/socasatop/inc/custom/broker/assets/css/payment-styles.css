@@ -1,0 +1,273 @@
+/**
+ * Estilos para o Sistema de Pagamento Unificado
+ */
+
+/* Container principal */
+.multi-product-checkout {
+    font-family: 'Arial', sans-serif;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Cabeçalho do checkout */
+.checkout-header {
+    margin-bottom: 30px;
+    text-align: center;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 15px;
+}
+
+.checkout-header h3 {
+    font-size: 24px;
+    color: #333;
+    margin: 0;
+}
+
+/* Lista de produtos */
+.product-list {
+    margin-bottom: 30px;
+}
+
+.product-list h4 {
+    font-size: 18px;
+    color: #333;
+    margin-bottom: 15px;
+}
+
+.checkout-products {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.checkout-product-item {
+    display: flex;
+    flex-wrap: wrap;
+    padding: 15px;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 10px;
+}
+
+.checkout-product-item:last-child {
+    border-bottom: none;
+}
+
+.product-title {
+    flex: 1;
+    font-weight: bold;
+    color: #333;
+}
+
+.product-price {
+    font-weight: bold;
+    color: #2c7be5;
+}
+
+.product-description {
+    flex-basis: 100%;
+    font-size: 14px;
+    color: #666;
+    margin-top: 5px;
+}
+
+/* Total */
+.checkout-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+    margin-top: 20px;
+}
+
+.total-label {
+    font-size: 18px;
+    font-weight: bold;
+    color: #333;
+}
+
+.total-value {
+    font-size: 20px;
+    font-weight: bold;
+    color: #2c7be5;
+}
+
+/* Formulário de pagamento */
+.payment-form {
+    margin-bottom: 30px;
+}
+
+/* Termos e condições */
+.terms-container {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+}
+
+.terms-label {
+    display: flex;
+    align-items: flex-start;
+    cursor: pointer;
+}
+
+.terms-label input {
+    margin-right: 10px;
+    margin-top: 3px;
+}
+
+.terms-label span {
+    font-size: 14px;
+    color: #666;
+}
+
+.terms-label a {
+    color: #2c7be5;
+    text-decoration: none;
+}
+
+.terms-label a:hover {
+    text-decoration: underline;
+}
+
+/* Status do pagamento */
+#payment-status {
+    margin-top: 30px;
+    padding: 20px;
+    border-radius: 5px;
+}
+
+.success-message {
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+    color: #155724;
+    padding: 20px;
+    border-radius: 5px;
+    text-align: center;
+}
+
+.error-message {
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+    color: #721c24;
+    padding: 20px;
+    border-radius: 5px;
+    text-align: center;
+}
+
+.success-message h3,
+.error-message h3 {
+    margin-top: 0;
+}
+
+.payment-details {
+    margin: 15px 0;
+    text-align: left;
+}
+
+.continue-button,
+.retry-button {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #2c7be5;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    cursor: pointer;
+    text-decoration: none;
+    margin-top: 15px;
+}
+
+.continue-button:hover,
+.retry-button:hover {
+    background-color: #1a68d1;
+}
+
+/* Overlay de carregamento */
+.payment-loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.payment-loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid #f3f3f3;
+    border-top: 5px solid #2c7be5;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Campos do formulário de cartão */
+.mp-form-container .mp-row {
+    margin-bottom: 15px;
+}
+
+.mp-form-container label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #555;
+}
+
+.mp-form-container .mp-input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.mp-form-container .mp-input:focus {
+    border-color: #2c7be5;
+    outline: none;
+}
+
+/* Botões do Mercado Pago */
+.mp-wallet-button-container {
+    margin-bottom: 20px;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .multi-product-checkout {
+        padding: 15px;
+    }
+    
+    .checkout-product-item {
+        flex-direction: column;
+    }
+    
+    .product-price {
+        margin-top: 5px;
+    }
+}
+
+/* Mensagens de erro */
+.payment-error {
+    padding: 15px;
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    text-align: center;
+} 

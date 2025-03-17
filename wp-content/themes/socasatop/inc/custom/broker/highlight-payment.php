@@ -1,7 +1,196 @@
 <?php
 /**
- * Pagamento para Destacar Imóveis (Assinatura Recorrente)
+ * Módulo de pagamento para destacar imóveis
+ * 
+ * Implementa as funcionalidades relacionadas ao pagamento para destacar imóveis.
  */
+
+// Impedir acesso direto ao arquivo
+if (!defined('ABSPATH')) {
+    exit; // Exit if accessed directly
+}
+
+/**
+ * Renderiza a página de configurações para destacar imóveis
+ *
+ * @return string HTML renderizado
+ */
+function render_highlight_payment_page() {
+    // Obter configurações salvas ou usar padrões
+    $highlight_days = get_option('highlight_payment_days', 30);
+    $highlight_price = get_option('highlight_payment_price', 99.90);
+    
+    ob_start();
+    ?>
+    <div class="highlight-payment-container">
+        <h2>Destaque seu imóvel</h2>
+        <p>Destaque seu imóvel e aumente suas chances de venda!</p>
+        
+        <div class="highlight-benefits">
+            <h3>Benefícios do destaque:</h3>
+            <ul>
+                <li>Maior visibilidade na plataforma</li>
+                <li>Aparecimento prioritário nas buscas</li>
+                <li>Selo de "Destaque" no seu anúncio</li>
+                <li>Inclusão no carrossel de imóveis em destaque</li>
+            </ul>
+        </div>
+        
+        <div class="highlight-pricing">
+            <h3>Preço do destaque:</h3>
+            <p class="price">R$ <?php echo number_format($highlight_price, 2, ',', '.'); ?></p>
+            <p class="period">Duração: <?php echo esc_html($highlight_days); ?> dias</p>
+        </div>
+        
+        <div class="highlight-action">
+            <a href="#" class="button highlight-button" data-action="highlight-property">Destacar Imóvel Agora</a>
+        </div>
+    </div>
+    
+    <style>
+        .highlight-payment-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .highlight-payment-container h2 {
+            color: #333;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .highlight-benefits {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 6px;
+        }
+        
+        .highlight-benefits h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        
+        .highlight-benefits ul {
+            padding-left: 20px;
+        }
+        
+        .highlight-benefits li {
+            margin-bottom: 8px;
+        }
+        
+        .highlight-pricing {
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .highlight-pricing .price {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        
+        .highlight-pricing .period {
+            color: #666;
+        }
+        
+        .highlight-action {
+            text-align: center;
+            margin: 25px 0 10px;
+        }
+        
+        .highlight-button {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        
+        .highlight-button:hover {
+            background-color: #45a049;
+        }
+    </style>
+    <?php
+    return ob_get_clean();
+}
+
+/**
+ * Função para processar o pagamento de destaque
+ */
+function highlight_payment_process($property_id) {
+    // Verificar se o property_id é válido
+    if (empty($property_id) || !is_numeric($property_id)) {
+        return new WP_Error('invalid_property', 'ID do imóvel inválido.');
+    }
+    
+    // Verificar se existe o post
+    $property = get_post($property_id);
+    if (!$property || $property->post_type !== 'immobile') {
+        return new WP_Error('property_not_found', 'Imóvel não encontrado.');
+    }
+    
+    // Verificar se o imóvel já está destacado
+    $is_sponsored = get_post_meta($property_id, 'is_sponsored', true);
+    if ($is_sponsored === 'yes') {
+        return new WP_Error('already_sponsored', 'Este imóvel já está destacado.');
+    }
+    
+    // Definir como destacado
+    update_post_meta($property_id, 'is_sponsored', 'yes');
+    
+    // Definir a data de expiração (30 dias a partir de hoje)
+    $expiration_date = date('Y-m-d H:i:s', strtotime('+30 days'));
+    update_post_meta($property_id, 'sponsored_expiration_date', $expiration_date);
+    
+    // Registrar o histórico de pagamento
+    $payment_history = get_post_meta($property_id, 'payment_history', true);
+    if (!is_array($payment_history)) {
+        $payment_history = array();
+    }
+    
+    $payment_history[] = array(
+        'type' => 'highlight',
+        'date' => date('Y-m-d H:i:s'),
+        'expiration' => $expiration_date,
+        'amount' => get_option('highlight_payment_price', 99.90)
+    );
+    
+    update_post_meta($property_id, 'payment_history', $payment_history);
+    
+    return true;
+}
+
+/**
+ * Verifica se um imóvel está destacado e se o destaque ainda é válido
+ *
+ * @param int $property_id ID do imóvel
+ * @return bool Verdadeiro se o imóvel estiver destacado e válido
+ */
+function is_property_highlighted($property_id) {
+    $is_highlighted = get_post_meta($property_id, 'is_highlighted', true);
+    
+    if ($is_highlighted !== 'yes') {
+        return false;
+    }
+    
+    $expiry_date = get_post_meta($property_id, 'highlight_expiry', true);
+    
+    if (empty($expiry_date)) {
+        return false;
+    }
+    
+    // Verificar se a data de expiração já passou
+    $now = current_time('mysql');
+    return strtotime($expiry_date) > strtotime($now);
+}
 
 /**
  * Renderiza o formulário de pagamento para destacar um imóvel
@@ -52,10 +241,11 @@ function render_highlight_payment_form($immobile_id) {
     
     // Obter a configuração do Mercado Pago
     if (function_exists('get_mercadopago_config')) {
-        $mp_config = get_mercadopago_config();
+        $mp_config = highlight_get_mercadopago_config();
         $public_key = $mp_config['public_key'];
     } else {
-        $public_key = get_option('mercadopago_public_key', '');
+        $mp_config = highlight_get_mercadopago_config();
+        $public_key = $mp_config['public_key'];
     }
     
     wp_localize_script('highlight-payment', 'highlight_payment', array(
@@ -457,78 +647,71 @@ add_shortcode('highlight_payment', 'highlight_payment_shortcode');
 /**
  * Função AJAX para processar o pagamento e criar a assinatura
  */
-function process_highlight_payment() {
+function highlight_payment_ajax_handler() {
     check_ajax_referer('highlight_payment_nonce', 'nonce');
     
+    // Verificar se o usuário está logado
     if (!is_user_logged_in()) {
-        wp_send_json_error('Usuário não autenticado');
+        wp_send_json_error(array('message' => 'Você precisa estar logado para realizar esta ação.'));
+        return;
     }
     
+    // Verificar se o ID do imóvel foi enviado
+    if (!isset($_POST['immobile_id']) || empty($_POST['immobile_id'])) {
+        wp_send_json_error(array('message' => 'ID do imóvel não fornecido.'));
+        return;
+    }
+    
+    $immobile_id = intval($_POST['immobile_id']);
+    
+    // Verificar se o usuário é o corretor deste imóvel
     $user_id = get_current_user_id();
-    $immobile_id = isset($_POST['immobile_id']) ? intval($_POST['immobile_id']) : 0;
-    $payment_method = isset($_POST['payment_method']) ? sanitize_text_field($_POST['payment_method']) : '';
-    $card_data = isset($_POST['card_data']) ? $_POST['card_data'] : array();
-    
-    if (empty($immobile_id)) {
-        wp_send_json_error('ID do imóvel não fornecido');
-    }
-    
-    // Verificar se o imóvel pertence ao corretor
     $broker_id = get_post_meta($immobile_id, 'broker', true);
+    
     if ($broker_id != $user_id) {
-        wp_send_json_error('Você não tem permissão para destacar este imóvel');
+        wp_send_json_error(array('message' => 'Você não tem permissão para destacar este imóvel.'));
+        return;
     }
     
-    // Verificar se o imóvel já está destacado
-    $is_sponsored = get_post_meta($immobile_id, 'is_sponsored', true) === 'yes';
-    if ($is_sponsored) {
-        wp_send_json_error('Este imóvel já está destacado');
+    // Verificar se foi enviado um ID de cartão
+    if (!isset($_POST['card_id']) || empty($_POST['card_id'])) {
+        // Se não tiver cartão, encaminhar para o checkout normal
+        $checkout_url = home_url('/corretores/checkout/?product=highlight&immobile_id=' . $immobile_id);
+        wp_send_json_success(array('redirect' => $checkout_url));
+        return;
     }
     
-    // Se for um novo cartão, processá-lo e salvá-lo
-    if (empty($payment_method) && !empty($card_data)) {
-        $new_card = array(
-            'id' => 'card_' . md5(time() . rand(1000, 9999)),
-            'brand' => isset($card_data['brand']) ? sanitize_text_field($card_data['brand']) : 'visa',
-            'last_four' => isset($card_data['last_four']) ? sanitize_text_field($card_data['last_four']) : '1234',
-            'expiry_month' => isset($card_data['expiry_month']) ? sanitize_text_field($card_data['expiry_month']) : '12',
-            'expiry_year' => isset($card_data['expiry_year']) ? sanitize_text_field($card_data['expiry_year']) : '2025',
-        );
+    $card_id = sanitize_text_field($_POST['card_id']);
+    
+    try {
+        // Criar assinatura no Mercado Pago
+        $subscription = create_mercadopago_subscription($immobile_id, $user_id, $card_id);
         
-        // Adicionar cartão aos cartões salvos do usuário
-        $saved_cards = get_user_meta($user_id, 'mercadopago_cards', true);
-        if (empty($saved_cards)) {
-            $saved_cards = array();
+        if (isset($subscription['id']) && !empty($subscription['id'])) {
+            // Salvar o ID da assinatura no imóvel
+            update_post_meta($immobile_id, 'highlight_subscription_id', $subscription['id']);
+            update_post_meta($immobile_id, 'highlight_subscription_data', $subscription);
+            
+            // Processar o destaque do imóvel
+            highlight_payment_process($immobile_id);
+            
+            // Enviar resposta de sucesso
+            wp_send_json_success(array(
+                'message' => 'Seu imóvel foi destacado com sucesso!',
+                'subscription_id' => $subscription['id']
+            ));
+            return;
+        } else {
+            // Erro ao criar assinatura
+            wp_send_json_error(array('message' => 'Erro ao processar pagamento: ' . json_encode($subscription)));
+            return;
         }
-        
-        $saved_cards[] = $new_card;
-        update_user_meta($user_id, 'mercadopago_cards', $saved_cards);
-        
-        // Se for o primeiro cartão, definir como padrão
-        if (count($saved_cards) === 1) {
-            update_user_meta($user_id, 'default_payment_card', $new_card['id']);
-        }
-        
-        $payment_method = $new_card['id'];
+    } catch (Exception $e) {
+        wp_send_json_error(array('message' => 'Erro ao processar pagamento: ' . $e->getMessage()));
+        return;
     }
-    
-    // Criar assinatura no Mercado Pago
-    $subscription_result = create_mercadopago_subscription($immobile_id, $user_id, $payment_method);
-    
-    if (!$subscription_result['success']) {
-        wp_send_json_error('Erro ao criar assinatura: ' . $subscription_result['message']);
-    }
-    
-    // Atualizar metadados do imóvel
-    update_post_meta($immobile_id, 'is_sponsored', 'yes');
-    update_post_meta($immobile_id, 'mercadopago_subscription_id', $subscription_result['subscription_id']);
-    
-    wp_send_json_success(array(
-        'message' => 'Pagamento processado com sucesso! Seu imóvel agora está destacado.',
-        'redirect_url' => get_permalink($immobile_id)
-    ));
 }
-add_action('wp_ajax_process_highlight_payment', 'process_highlight_payment');
+add_action('wp_ajax_highlight_payment_ajax_handler', 'highlight_payment_ajax_handler');
 
 /**
  * Criar assinatura no Mercado Pago
@@ -536,10 +719,8 @@ add_action('wp_ajax_process_highlight_payment', 'process_highlight_payment');
  * Esta é uma implementação simulada. Em produção, você usaria a API do Mercado Pago.
  */
 function create_mercadopago_subscription($immobile_id, $user_id, $card_id) {
-    // Carregar configurações do Mercado Pago
-    require_once get_stylesheet_directory() . '/inc/custom/search-ai/mercadopago.php';
-    $mp_payment = new MP_Payment();
-    $mp_config = $mp_payment->config;
+    // Obter configurações do Mercado Pago
+    $mp_config = highlight_get_mercadopago_config();
     
     // Obter dados do usuário e imóvel
     $user = get_userdata($user_id);
@@ -621,9 +802,9 @@ function create_mercadopago_subscription($immobile_id, $user_id, $card_id) {
 /**
  * Cancelar assinatura no Mercado Pago
  */
-function cancel_mercadopago_subscription($subscription_id) {
+function highlight_cancel_mercadopago_subscription($subscription_id) {
     require_once get_stylesheet_directory() . '/inc/custom/immobile/mercadopago.php';
-    $mp_config = get_mercadopago_config();
+    $mp_config = highlight_get_mercadopago_config();
     
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, "https://api.mercadopago.com/preapproval/" . $subscription_id);
@@ -663,24 +844,16 @@ function cancel_mercadopago_subscription($subscription_id) {
 }
 
 /**
- * Obtém a configuração do Mercado Pago
+ * Obtém as configurações do Mercado Pago
  */
-function get_mercadopago_config() {
-    // Verificar se podemos obter da classe Immobile_Payment
-    if (class_exists('Immobile_Payment')) {
-        $mp_payment = new Immobile_Payment();
-        $reflection = new ReflectionClass($mp_payment);
-        $property = $reflection->getProperty('config');
-        $property->setAccessible(true);
-        return $property->getValue($mp_payment);
-    }
+function highlight_get_mercadopago_config() {
+    $config = array(
+        'public_key' => get_option('mercadopago_public_key', ''),
+        'access_token' => get_option('mercadopago_access_token', ''),
+        'test_mode' => get_option('mercadopago_test_mode', 'yes') === 'yes'
+    );
     
-    // Configuração padrão como fallback
-    return [
-        'sandbox' => true,
-        'public_key' => 'TEST-70b46d06-add9-499a-942e-0f5c01b8769a',
-        'access_token' => 'TEST-1105123470040162-010319-784660b8cba90a127251b50a9e066db6-242756635'
-    ];
+    return $config;
 }
 
 /**
@@ -849,7 +1022,7 @@ function create_highlight_payment_js() {
                 url: highlight_payment.ajax_url,
                 type: 'POST',
                 data: {
-                    action: 'process_highlight_payment',
+                    action: 'highlight_payment_ajax_handler',
                     nonce: highlight_payment.nonce,
                     immobile_id: highlight_payment.immobile_id,
                     card_id: cardId,

@@ -392,7 +392,10 @@ include_once "inc/custom/search-ai/sponsored.php";
 include_once "inc/custom/immobile/create-immobile-flow.php";
 include_once "inc/custom/immobile/ajax-payment.php";
 
-wp_enqueue_script('jquery-mask', 'https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js', array('jquery'), '1.14.16', true);
+function enqueue_jquery_mask() {
+    wp_enqueue_script('jquery-mask', 'https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js', array('jquery'), '1.14.16', true);
+}
+add_action('wp_enqueue_scripts', 'enqueue_jquery_mask');
 
 require_once 'inc/custom/admin-dashboard/dashboard.php';
 require_once get_stylesheet_directory() . '/inc/custom/search-ai/register.php';

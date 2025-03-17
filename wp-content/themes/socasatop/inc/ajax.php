@@ -684,3 +684,123 @@ function delete_immobile() {
     wp_send_json_success('Imóvel excluído com sucesso');
 }
 add_action('wp_ajax_delete_immobile', 'delete_immobile');
+
+// Função para buscar métricas do corretor
+if (!function_exists('get_broker_metrics')) {
+    function get_broker_metrics() {
+        error_log('Iniciando get_broker_metrics');
+        
+        check_ajax_referer('ajax_nonce', 'nonce');
+        
+        if (!is_user_logged_in()) {
+            error_log('get_broker_metrics: Usuário não autenticado');
+            wp_send_json_error('Usuário não autenticado');
+        }
+
+        $user = wp_get_current_user();
+        error_log('get_broker_metrics: Usuário #' . $user->ID . ' com roles: ' . implode(', ', $user->roles));
+        
+        if (!in_array('author', (array) $user->roles) && !in_array('administrator', (array) $user->roles)) {
+            error_log('get_broker_metrics: Usuário não tem permissão de corretor');
+            wp_send_json_error('Acesso restrito a corretores');
+        }
+
+        $user_id = get_current_user_id();
+        $last_30_days = array();
+        
+        for ($i = 0; $i < 30; $i++) {
+            $date = date('Y-m-d', strtotime("-$i days"));
+            $views = get_user_meta($user_id, "metrics_views_{$date}", true) ?: 0;
+            $clicks = get_user_meta($user_id, "metrics_clicks_{$date}", true) ?: 0;
+            $conversions = get_user_meta($user_id, "metrics_conversions_{$date}", true) ?: 0;
+
+            $last_30_days[] = array(
+                'date' => $date,
+                'views' => (int)$views,
+                'clicks' => (int)$clicks,
+                'conversions' => (int)$conversions
+            );
+        }
+
+        error_log('get_broker_metrics: Retornando métricas para os últimos 30 dias');
+        wp_send_json_success(array(
+            'metrics' => array_reverse($last_30_days)
+        ));
+    }
+}
+add_action('wp_ajax_get_broker_metrics', 'get_broker_metrics');
+
+// A função get_broker_properties já está definida em inc/custom/broker/dashboard.php
+// Comentando a duplicação para evitar erro de sintaxe
+/*
+// Função para buscar imóveis do corretor
+if (!function_exists('get_broker_properties')) {
+    function get_broker_properties()
+    {
+        error_log('Iniciando get_broker_properties');
+        
+        check_ajax_referer('ajax_nonce', 'nonce');
+        
+        if (!is_user_logged_in()) {
+            error_log('get_broker_properties: Usuário não autenticado');
+            wp_send_json_error('Usuário não autenticado');
+        }
+
+        $user = wp_get_current_user();
+        error_log('get_broker_properties: Usuário #' . $user->ID . ' com roles: ' . implode(', ', $user->roles));
+        
+        if (!in_array('author', (array) $user->roles) && !in_array('administrator', (array) $user->roles)) {
+            error_log('get_broker_properties: Usuário não tem permissão de corretor');
+            wp_send_json_error('Acesso restrito a corretores');
+        }
+
+        $user_id = get_current_user_id();
+        
+        $args = array(
+            'post_type' => 'immobile',
+            'posts_per_page' => -1,
+            'author' => $user_id,
+            'post_status' => array('publish', 'draft', 'pending'),
+            'orderby' => 'date',
+            'order' => 'DESC'
+        );
+        
+        error_log('get_broker_properties: Buscando imóveis com args: ' . json_encode($args));
+        
+        $query = new WP_Query($args);
+        $properties = array();
+        
+        if ($query->have_posts()) {
+            while ($query->have_posts()) {
+                $query->the_post();
+                $post_id = get_the_ID();
+                
+                $property = array(
+                    'id' => $post_id,
+                    'title' => get_the_title(),
+                    'status' => get_post_status(),
+                    'date' => get_the_date('Y-m-d H:i:s'),
+                    'link' => get_permalink(),
+                    'edit_link' => get_edit_post_link($post_id, 'raw'),
+                    'featured_image' => get_the_post_thumbnail_url($post_id, 'thumbnail'),
+                    'price' => get_post_meta($post_id, 'price', true),
+                    'location' => get_post_meta($post_id, 'location', true),
+                    'sponsored' => get_post_meta($post_id, 'is_sponsored', true) === 'yes',
+                    'views' => (int)get_post_meta($post_id, 'total_views', true),
+                    'clicks' => (int)get_post_meta($post_id, 'total_clicks', true)
+                );
+                
+                $properties[] = $property;
+            }
+        }
+        
+        wp_reset_postdata();
+        
+        error_log('get_broker_properties: Retornando ' . count($properties) . ' imóveis');
+        wp_send_json_success(array(
+            'properties' => $properties
+        ));
+    }
+}
+add_action('wp_ajax_get_broker_properties', 'get_broker_properties');
+*/

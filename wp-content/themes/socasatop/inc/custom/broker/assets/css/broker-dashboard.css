@@ -1,0 +1,296 @@
+.broker-dashboard {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #f5f5f5;
+    border-radius: 8px;
+    box-sizing: border-box;
+}
+
+.notice {
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+}
+
+.notice-error {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+}
+
+.notice-warning {
+    background-color: #fff3cd;
+    border: 1px solid #ffeeba;
+    color: #856404;
+}
+
+.notice p {
+    margin: 0 0 10px;
+}
+
+.notice p:last-child {
+    margin-bottom: 0;
+}
+
+.metrics-section {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.metrics-section h2 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 24px;
+    color: #333;
+}
+
+.chart-container {
+    background: white;
+    border-radius: 4px;
+    padding: 10px;
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 20px;
+}
+
+.loading {
+    text-align: center;
+    padding: 40px;
+    font-size: 18px;
+    color: #666;
+}
+
+.button {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+    cursor: pointer;
+    border: none;
+}
+
+.button:hover {
+    background-color: #0056b3;
+    color: white;
+    text-decoration: none;
+}
+
+.broker-dashboard-content {
+    margin-top: 20px;
+    width: 100%;
+}
+
+.property-list {
+    margin-top: 20px;
+    width: 100%;
+}
+
+.property-item {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+}
+
+.property-select {
+    margin-right: 15px;
+}
+
+.property-thumbnail {
+    width: 100px;
+    height: 100px;
+    margin-right: 20px;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.property-thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.property-details {
+    flex: 1;
+}
+
+.property-title {
+    margin: 0 0 10px;
+    font-size: 18px;
+    color: #333;
+}
+
+.property-meta {
+    display: flex;
+    gap: 15px;
+    color: #666;
+    font-size: 14px;
+}
+
+.property-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.action-button {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    color: white;
+    transition: background-color 0.2s;
+}
+
+.edit-button {
+    background-color: #2196F3;
+}
+
+.edit-button:hover {
+    background-color: #0b7dda;
+}
+
+.highlight-button {
+    background-color: #FFC107;
+    color: #212121;
+}
+
+.highlight-button:hover {
+    background-color: #FFA000;
+    color: #212121;
+    text-decoration: none;
+}
+
+.pause-highlight-button {
+    background-color: #FF9800;
+}
+
+.pause-highlight-button:hover {
+    background-color: #F57C00;
+}
+
+.delete-button {
+    background-color: #F44336;
+}
+
+.delete-button:hover {
+    background-color: #D32F2F;
+}
+
+.dashboard-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.dashboard-controls-left {
+    display: flex;
+    align-items: center;
+}
+
+.bulk-select-container {
+    display: flex;
+    align-items: center;
+    margin-right: 10px;
+}
+
+.checkbox-label {
+    margin-left: 5px;
+}
+
+.bulk-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.add-property-button, .payment-settings-button {
+    display: inline-flex;
+    align-items: center;
+    background-color: #1e56b3;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 4px;
+    text-decoration: none;
+    margin-left: 10px;
+    transition: background-color 0.2s;
+}
+
+.add-property-button:hover, .payment-settings-button:hover {
+    background-color: #174291;
+    text-decoration: none;
+    color: white;
+}
+
+.payment-settings-button {
+    background-color: #2196F3;
+}
+
+.payment-settings-button:hover {
+    background-color: #0b7dda;
+}
+
+.add-property-button i, .payment-settings-button i {
+    margin-right: 5px;
+}
+
+@media (max-width: 768px) {
+    .property-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .property-select {
+        align-self: flex-start;
+        margin-bottom: 10px;
+    }
+    
+    .property-thumbnail {
+        width: 100%;
+        height: 180px;
+        margin-right: 0;
+        margin-bottom: 15px;
+    }
+    
+    .property-details {
+        width: 100%;
+        margin-bottom: 15px;
+    }
+    
+    .property-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+    
+    .dashboard-controls {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .dashboard-controls-right {
+        margin-top: 15px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    .add-property-button, .payment-settings-button {
+        margin-left: 0;
+        margin-bottom: 10px;
+    }
+} 

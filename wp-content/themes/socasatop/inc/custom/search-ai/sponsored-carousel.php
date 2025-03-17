@@ -1,9 +1,12 @@
 <?php
+// Verificação crítica: não executar durante chamadas AJAX
+if (defined('DOING_AJAX') && DOING_AJAX) {
+    return;
+}
+
 if (!defined('ABSPATH')) {
     exit;
 }
-
-
 
 function enqueue_sponsored_carousel_scripts() {
   if (has_shortcode(get_the_content(), 'sponsored_carousel')) {
