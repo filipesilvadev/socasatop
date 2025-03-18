@@ -75,8 +75,15 @@ class Socasa_MercadoPago_Payment {
      * @return array Resultado do processamento
      */
     public function process_payment($result, $payment_data, $product) {
+        // Debug
+        error_log('MP Payment Processor - Dados recebidos: ' . json_encode([
+            'payment_data' => $payment_data,
+            'product' => $product
+        ]));
+        
         // Verificar se temos acesso ao token
         if (empty($this->config['access_token'])) {
+            error_log('MP Payment Processor - Token de acesso não configurado');
             return [
                 'success' => false,
                 'message' => 'Configuração de pagamento incompleta. Token de acesso não configurado.'
@@ -87,17 +94,24 @@ class Socasa_MercadoPago_Payment {
         $payment_method = isset($payment_data['payment_method']) ? $payment_data['payment_method'] : '';
         $payment_data_info = isset($payment_data['payment_data']) ? $payment_data['payment_data'] : [];
         
+        error_log('MP Payment Processor - Método de pagamento: ' . $payment_method);
+        
         switch ($payment_method) {
             case 'card':
+            case 'new_card':
+                error_log('MP Payment Processor - Processando pagamento com novo cartão');
                 return $this->process_card_payment($payment_data_info, $product);
                 
             case 'wallet':
+                error_log('MP Payment Processor - Processando pagamento com carteira');
                 return $this->process_wallet_payment($payment_data_info, $product);
                 
             case 'saved_card':
+                error_log('MP Payment Processor - Processando pagamento com cartão salvo');
                 return $this->process_saved_card_payment($payment_data_info, $product);
                 
             default:
+                error_log('MP Payment Processor - Método de pagamento não suportado: ' . $payment_method);
                 return [
                     'success' => false,
                     'message' => 'Método de pagamento não suportado ou não especificado.'
@@ -109,11 +123,15 @@ class Socasa_MercadoPago_Payment {
      * Processa pagamento com cartão
      */
     private function process_card_payment($payment_data, $product) {
+        // Debug
+        error_log('MP Payment Processor - Dados do pagamento com cartão: ' . json_encode($payment_data));
+        
         // Verificar dados necessários
-        if (empty($payment_data['token']) || empty($payment_data['payment_method_id'])) {
+        if (empty($payment_data['token'])) {
+            error_log('MP Payment Processor - Token do cartão não fornecido');
             return [
                 'success' => false,
-                'message' => 'Dados de pagamento incompletos.'
+                'message' => 'Dados de pagamento incompletos. Token do cartão não fornecido.'
             ];
         }
         
@@ -121,10 +139,12 @@ class Socasa_MercadoPago_Payment {
         $api_data = [
             'transaction_amount' => floatval($payment_data['transaction_amount']),
             'token' => $payment_data['token'],
-            'description' => $payment_data['description'],
-            'installments' => intval($payment_data['installments']),
-            'payment_method_id' => $payment_data['payment_method_id'],
-            'payer' => $payment_data['payer']
+            'description' => isset($payment_data['description']) ? $payment_data['description'] : 'Compra em SoCasaTop',
+            'installments' => isset($payment_data['installments']) ? intval($payment_data['installments']) : 1,
+            'payment_method_id' => isset($payment_data['payment_method_id']) ? $payment_data['payment_method_id'] : 'visa',
+            'payer' => isset($payment_data['payer']) ? $payment_data['payer'] : [
+                'email' => 'user@example.com'
+            ]
         ];
         
         // Incluir issuer_id se disponível
@@ -133,7 +153,9 @@ class Socasa_MercadoPago_Payment {
         }
         
         // Processar pagamento via API
-        return $this->send_payment_request($api_data);
+        $result = $this->send_payment_request($api_data);
+        error_log('MP Payment Processor - Resultado do processamento com cartão: ' . json_encode($result));
+        return $result;
     }
     
     /**
@@ -156,8 +178,12 @@ class Socasa_MercadoPago_Payment {
      * Processa pagamento com cartão salvo
      */
     private function process_saved_card_payment($payment_data, $product) {
+        // Debug
+        error_log('MP Payment Processor - Dados do pagamento com cartão salvo: ' . json_encode($payment_data));
+        
         // Verificar dados necessários
         if (empty($payment_data['saved_card_id'])) {
+            error_log('MP Payment Processor - ID do cartão salvo não fornecido');
             return [
                 'success' => false,
                 'message' => 'ID do cartão salvo não fornecido.'
@@ -165,44 +191,80 @@ class Socasa_MercadoPago_Payment {
         }
         
         $user_id = get_current_user_id();
+        error_log('MP Payment Processor - User ID: ' . $user_id);
+        
         $cards = get_user_meta($user_id, 'mercadopago_cards', true) ?: [];
+        error_log('MP Payment Processor - Cartões do usuário: ' . json_encode($cards));
         
         // Encontrar o cartão salvo
         $card_info = null;
-        foreach ($cards as $card) {
-            if ($card['id'] === $payment_data['saved_card_id']) {
-                $card_info = $card;
-                break;
+        $card_id = $payment_data['saved_card_id'];
+        
+        if (isset($cards[$card_id])) {
+            $card_info = $cards[$card_id];
+            error_log('MP Payment Processor - Cartão encontrado pelo ID direto: ' . json_encode($card_info));
+        } else {
+            // Tenta encontrar o cartão por ID na lista
+            foreach ($cards as $key => $card) {
+                if ($key === $card_id || (isset($card['id']) && $card['id'] === $card_id)) {
+                    $card_info = $card;
+                    error_log('MP Payment Processor - Cartão encontrado por iteração: ' . json_encode($card_info));
+                    break;
+                }
             }
         }
         
         if (!$card_info) {
+            error_log('MP Payment Processor - Cartão não encontrado: ' . $card_id);
             return [
                 'success' => false,
                 'message' => 'Cartão não encontrado.'
             ];
         }
         
-        // Preparar dados para API
+        // Verificar se temos token ou card_id
+        if (empty($card_info['token']) && empty($card_info['card_id'])) {
+            error_log('MP Payment Processor - Cartão sem token ou card_id');
+            return [
+                'success' => false,
+                'message' => 'Dados do cartão incompletos. Por favor, adicione um novo cartão.'
+            ];
+        }
+        
+        // Preparar dados para API baseados no cartão salvo
         $api_data = [
             'transaction_amount' => floatval($payment_data['amount']),
-            'description' => $payment_data['description'],
+            'description' => isset($payment_data['description']) ? $payment_data['description'] : 'Compra em SoCasaTop',
             'installments' => 1,
-            'payment_method_id' => $card_info['payment_method_id'],
-            'token' => $card_info['token'],
+            'payment_method_id' => isset($card_info['payment_method_id']) ? $card_info['payment_method_id'] : 
+                                   (isset($card_info['brand']) ? $card_info['brand'] : 'visa'),
             'payer' => [
-                'email' => $card_info['email']
+                'email' => isset($card_info['email']) ? $card_info['email'] : get_userdata($user_id)->user_email
             ]
         ];
         
+        // Usar token do cartão se disponível
+        if (!empty($card_info['token'])) {
+            $api_data['token'] = $card_info['token'];
+        } else if (!empty($card_info['card_id'])) {
+            // Usar card_id se token não estiver disponível
+            $api_data['card_id'] = $card_info['card_id'];
+        }
+        
+        error_log('MP Payment Processor - Dados para API (cartão salvo): ' . json_encode($api_data));
+        
         // Processar pagamento via API
-        return $this->send_payment_request($api_data);
+        $result = $this->send_payment_request($api_data);
+        error_log('MP Payment Processor - Resultado do processamento com cartão salvo: ' . json_encode($result));
+        return $result;
     }
     
     /**
      * Envia requisição de pagamento para a API do Mercado Pago
      */
     private function send_payment_request($api_data) {
+        error_log('MP Payment Processor - Enviando requisição para API do MP: ' . json_encode($api_data));
+        
         // Configurar a requisição cURL
         $curl = curl_init();
         
@@ -230,7 +292,7 @@ class Socasa_MercadoPago_Payment {
         
         // Tratar erros de conexão
         if ($err) {
-            error_log('Erro na requisição do Mercado Pago: ' . $err);
+            error_log('MP Payment Processor - Erro na requisição do MP: ' . $err);
             return [
                 'success' => false,
                 'message' => 'Erro na comunicação com o gateway de pagamento: ' . $err
@@ -239,11 +301,12 @@ class Socasa_MercadoPago_Payment {
         
         // Decodificar resposta
         $response_data = json_decode($response, true);
+        error_log('MP Payment Processor - Resposta da API do MP: ' . $response . ' (HTTP: ' . $http_code . ')');
         
         // Verificar código de resposta HTTP
         if ($http_code < 200 || $http_code >= 300) {
             $error_message = isset($response_data['message']) ? $response_data['message'] : 'Erro desconhecido';
-            error_log('Erro na resposta do Mercado Pago: ' . $error_message);
+            error_log('MP Payment Processor - Erro na resposta do MP: ' . $error_message);
             return [
                 'success' => false,
                 'message' => 'Erro no processamento do pagamento: ' . $error_message

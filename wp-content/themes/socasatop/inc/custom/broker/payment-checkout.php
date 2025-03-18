@@ -13,6 +13,24 @@ if (!defined('ABSPATH')) {
 }
 
 /**
+ * Verifica e carrega os scripts e estilos necessários para o checkout
+ */
+function check_payment_core_js() {
+    // Mercado Pago SDK
+    wp_enqueue_script('mercadopago-sdk', 'https://sdk.mercadopago.com/js/v2', array(), null, true);
+    
+    // Core JS
+    $core_path = get_template_directory() . '/inc/custom/broker/assets/js/payment-core.js';
+    $core_version = file_exists($core_path) ? filemtime($core_path) : time();
+    wp_enqueue_script('payment-core-js', get_template_directory_uri() . '/inc/custom/broker/assets/js/payment-core.js', array('jquery', 'mercadopago-sdk'), $core_version, true);
+    
+    // CSS para checkout
+    $css_path = get_template_directory() . '/inc/custom/broker/assets/css/payment-checkout.css';
+    $css_version = file_exists($css_path) ? filemtime($css_path) : time();
+    wp_enqueue_style('payment-checkout-css', get_template_directory_uri() . '/inc/custom/broker/assets/css/payment-checkout.css', array(), $css_version);
+}
+
+/**
  * Renderiza o formulário de checkout com suporte a múltiplos produtos
  * 
  * @param array $products Lista de produtos a serem incluídos no checkout
@@ -33,6 +51,14 @@ function render_multi_product_checkout($products, $args = []) {
     // Buscar informações do usuário
     $user_id = get_current_user_id();
     $user = get_userdata($user_id);
+    
+    // Buscar cartões salvos do usuário
+    $saved_cards = get_user_mercadopago_cards($user_id);
+    $default_card_id = get_user_meta($user_id, 'default_payment_card', true);
+    
+    // Log para debug
+    error_log('Cartões salvos encontrados: ' . json_encode($saved_cards));
+    error_log('Cartão padrão: ' . $default_card_id);
     
     // Verificar se temos o PUBLIC_KEY do Mercado Pago
     $mp_public_key = get_option('mercadopago_public_key');
@@ -81,54 +107,132 @@ function render_multi_product_checkout($products, $args = []) {
         
         <div class="payment-form">
             <div id="payment-form">
-                <!-- O formulário de pagamento será renderizado aqui -->
-                <div class="mp-wallet-button-container"></div>
-                <div class="mp-form-container"></div>
-            </div>
-            
-            <div id="payment-status" style="display: none;">
-                <div class="success-message" style="display: none;">
-                    <h3>Pagamento processado com sucesso!</h3>
-                    <p>Seu pagamento foi aprovado.</p>
-                    <div class="payment-details"></div>
-                    <a href="#" class="continue-button">Continuar</a>
+                <?php if (!empty($saved_cards)) : ?>
+                <!-- Lista de cartões salvos -->
+                <div class="saved-cards-section">
+                    <h4>Escolha um cartão salvo</h4>
+                    <div class="saved-cards-list">
+                        <?php foreach ($saved_cards as $card_id => $card) : ?>
+                        <div class="saved-card-option">
+                            <label class="card-radio-label">
+                                <input type="radio" name="payment_method" value="saved_card" 
+                                       data-card-id="<?php echo esc_attr($card_id); ?>" 
+                                       <?php checked($card_id, $default_card_id); ?>>
+                                <div class="card-info">
+                                    <div class="card-brand">
+                                        <img src="<?php echo get_card_brand_logo($card['brand']); ?>" alt="<?php echo esc_attr($card['brand']); ?>">
+                                    </div>
+                                    <div class="card-details">
+                                        <span class="card-number">•••• •••• •••• <?php echo esc_html($card['last_four']); ?></span>
+                                        <span class="card-expiry">Validade: <?php echo esc_html($card['expiry_month']); ?>/<?php echo esc_html($card['expiry_year']); ?></span>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                        <?php endforeach; ?>
+                        <div class="new-card-option">
+                            <label class="card-radio-label">
+                                <input type="radio" name="payment_method" id="new-card-option" value="new_card">
+                                <div class="card-info">
+                                    <div class="card-details">
+                                        <span>Usar outro cartão</span>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
                 </div>
-                <div class="error-message" style="display: none;">
-                    <h3>Ocorreu um erro no pagamento</h3>
-                    <p class="error-details"></p>
-                    <button class="retry-button">Tentar novamente</button>
+
+                <!-- Formulário para novo cartão -->
+                <div class="new-card-form" style="display: none;">
+                    <h4>Novo Cartão</h4>
+                    <div id="card-form" class="mp-form">
+                        <div class="mp-input-container">
+                            <label for="cardholderName">Nome no cartão</label>
+                            <input type="text" id="cardholderName" data-checkout="cardholderName" placeholder="Nome como está no cartão">
+                        </div>
+                        <div class="mp-input-container">
+                            <label>Número do cartão</label>
+                            <div id="cardNumberContainer"></div>
+                        </div>
+                        <div class="mp-row">
+                            <div class="mp-col-6">
+                                <label>Data de validade</label>
+                                <div id="expirationDateContainer"></div>
+                            </div>
+                            <div class="mp-col-6">
+                                <label>Código de segurança</label>
+                                <div id="securityCodeContainer"></div>
+                            </div>
+                        </div>
+                        <div class="save-card-option">
+                            <label>
+                                <input type="checkbox" id="save-card-checkbox" checked>
+                                <span>Salvar este cartão para futuras compras</span>
+                            </label>
+                        </div>
+                    </div>
                 </div>
+                <?php else : ?>
+                <!-- Apenas o formulário de novo cartão quando não há cartões salvos -->
+                <div class="new-card-form">
+                    <h4>Dados de Pagamento</h4>
+                    <div id="card-form" class="mp-form">
+                        <div class="mp-input-container">
+                            <label for="cardholderName">Nome no cartão</label>
+                            <input type="text" id="cardholderName" data-checkout="cardholderName" placeholder="Nome como está no cartão">
+                        </div>
+                        <div class="mp-input-container">
+                            <label>Número do cartão</label>
+                            <div id="cardNumberContainer"></div>
+                        </div>
+                        <div class="mp-row">
+                            <div class="mp-col-6">
+                                <label>Data de validade</label>
+                                <div id="expirationDateContainer"></div>
+                            </div>
+                            <div class="mp-col-6">
+                                <label>Código de segurança</label>
+                                <div id="securityCodeContainer"></div>
+                            </div>
+                        </div>
+                        <div class="save-card-option">
+                            <label>
+                                <input type="checkbox" id="save-card-checkbox" checked>
+                                <span>Salvar este cartão para futuras compras</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
         
-        <div class="terms-container">
-            <label for="accept-terms" class="terms-label">
-                <input type="checkbox" id="accept-terms" name="accept-terms">
-                <span>Li e aceito os <a href="/termos-de-uso/" target="_blank">termos de uso</a> e <a href="/politica-de-privacidade/" target="_blank">política de privacidade</a>.</span>
-            </label>
+        <!-- Área de mensagens e botão de pagamento -->
+        <div class="payment-actions">
+            <div class="payment-messages"></div>
+            <button type="submit" class="checkout-button payment-button">Finalizar Pagamento</button>
         </div>
     </div>
+    <?php
     
+    // Configurações para o JavaScript
+    $payment_config = [
+        'publicKey' => $mp_public_key,
+        'ajaxUrl' => admin_url('admin-ajax.php'),
+        'nonce' => wp_create_nonce('payment_nonce'),
+        'debug' => defined('WP_DEBUG') && WP_DEBUG,
+        'multiProduct' => true,
+        'amount' => number_format($total_amount, 2, '.', '')
+    ];
+    ?>
     <script>
-    jQuery(document).ready(function($) {
-        // Inicializar o sistema de pagamento
-        if (typeof SocasaPayment !== 'undefined') {
-            SocasaPayment.init({
-                publicKey: '<?php echo esc_js($mp_public_key); ?>',
-                amount: <?php echo $total_amount; ?>,
-                ajaxUrl: '<?php echo admin_url('admin-ajax.php'); ?>',
-                nonce: '<?php echo wp_create_nonce('payment_nonce'); ?>',
-                productIds: <?php echo json_encode(array_map(function($p) { return $p['id']; }, $products)); ?>,
-                entityIds: <?php echo json_encode(array_map(function($p) { return $p['entity_id'] ?? 0; }, $products)); ?>,
-                successRedirect: '<?php echo isset($args['success_url']) ? esc_js($args['success_url']) : home_url(); ?>',
-                multiProduct: true
-            });
-        } else {
-            console.error('SocasaPayment não encontrado. Verifique se o arquivo payment-core.js está carregado corretamente.');
-        }
-    });
+        // Configurações para o processador de pagamento
+        window.socasaPaymentConfig = <?php echo json_encode($payment_config); ?>;
     </script>
     <?php
+    
+    // Retornar o HTML gerado
     return ob_get_clean();
 }
 
@@ -284,105 +388,280 @@ function multi_product_checkout_shortcode($atts) {
 add_shortcode('multi_checkout', 'multi_product_checkout_shortcode');
 
 /**
- * Manipula a requisição AJAX para processamento de pagamento multi-produtos
+ * Manipulador AJAX para pagamentos multi-produto
  */
 function handle_multi_product_payment_ajax() {
-    // Verificar nonce para segurança
+    // Verificar nonce
     if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'payment_nonce')) {
-        wp_send_json_error(['message' => 'Erro de segurança. Tente novamente.']);
+        wp_send_json_error(['message' => 'Verificação de segurança falhou. Por favor, recarregue a página e tente novamente.']);
+        return;
     }
     
     // Verificar se o usuário está logado
     if (!is_user_logged_in()) {
-        wp_send_json_error(['message' => 'Usuário não autenticado.']);
+        wp_send_json_error(['message' => 'Você precisa estar logado para realizar esta operação.']);
+        return;
     }
     
-    // Verificar se temos os dados necessários
-    if (!isset($_POST['payment_data']) || !isset($_POST['product_ids']) || !isset($_POST['entity_ids'])) {
-        wp_send_json_error(['message' => 'Dados incompletos.']);
-    }
-    
-    // Obter dados do pagamento
-    $payment_data = json_decode(stripslashes($_POST['payment_data']), true);
-    $product_ids = json_decode(stripslashes($_POST['product_ids']), true);
-    $entity_ids = json_decode(stripslashes($_POST['entity_ids']), true);
-    
-    if (!$payment_data || !$product_ids || !is_array($product_ids)) {
-        wp_send_json_error(['message' => 'Formato de dados inválido.']);
-    }
-    
-    // Padronizar o tamanho dos arrays
-    $max_count = max(count($product_ids), count($entity_ids));
-    $entity_ids = array_pad($entity_ids, $max_count, 0);
-    
-    // Montar lista de produtos
-    $products = [];
-    foreach ($product_ids as $index => $product_id) {
-        $product = socasa_get_product($product_id);
-        if ($product) {
-            $product['entity_id'] = isset($entity_ids[$index]) ? intval($entity_ids[$index]) : 0;
-            $products[] = $product;
-        }
-    }
-    
-    // Verificar se temos produtos válidos
-    if (empty($products)) {
-        wp_send_json_error(['message' => 'Nenhum produto válido encontrado.']);
-    }
-    
-    // Processar o pagamento com o Mercado Pago
-    $mp_access_token = get_option('mercadopago_access_token');
-    if (empty($mp_access_token)) {
-        wp_send_json_error(['message' => 'Configuração de pagamento incompleta.']);
-    }
-    
-    // Realizar a chamada à API do Mercado Pago
-    $response = wp_remote_post(
-        'https://api.mercadopago.com/v1/payments',
-        [
-            'headers' => [
-                'Authorization' => 'Bearer ' . $mp_access_token,
-                'Content-Type' => 'application/json'
-            ],
-            'body' => json_encode($payment_data),
-            'timeout' => 30
-        ]
-    );
-    
-    // Verificar resposta
-    if (is_wp_error($response)) {
-        wp_send_json_error([
-            'message' => 'Erro ao processar pagamento: ' . $response->get_error_message()
-        ]);
-    }
-    
-    $response_code = wp_remote_retrieve_response_code($response);
-    $response_body = json_decode(wp_remote_retrieve_body($response), true);
-    
-    if ($response_code != 200 && $response_code != 201) {
-        wp_send_json_error([
-            'message' => 'Erro no processamento do pagamento.',
-            'details' => isset($response_body['message']) ? $response_body['message'] : 'Erro desconhecido'
-        ]);
-    }
-    
-    // Processar sucesso
     $user_id = get_current_user_id();
     
-    // Registrar pagamento
-    $payment_record_id = create_multi_product_payment_record($user_id, $products, $response_body);
+    // Verificar método de pagamento
+    $payment_method = isset($_POST['payment_method']) ? sanitize_text_field($_POST['payment_method']) : '';
     
-    // Ativar produtos
-    if ($response_body['status'] === 'approved') {
-        activate_purchased_products($products, $response_body);
+    // Validar campos obrigatórios
+    if (empty($payment_method)) {
+        wp_send_json_error(['message' => 'Método de pagamento não especificado.']);
+        return;
     }
     
-    // Retornar sucesso
-    wp_send_json_success([
-        'message' => 'Pagamento processado com sucesso!',
-        'payment_id' => isset($response_body['id']) ? $response_body['id'] : '',
-        'status' => isset($response_body['status']) ? $response_body['status'] : 'pending',
-        'payment_record_id' => $payment_record_id
-    ]);
+    // Recuperar produtos da sessão
+    $session_products = isset($_SESSION['checkout_products']) ? $_SESSION['checkout_products'] : [];
+    if (empty($session_products)) {
+        wp_send_json_error(['message' => 'Nenhum produto selecionado para pagamento.']);
+        return;
+    }
+    
+    // Verificar se temos um processador de pagamento
+    if (!function_exists('process_payment_with_method')) {
+        error_log('Função process_payment_with_method não encontrada. Verifique se o arquivo payment-unified.php está carregado.');
+        wp_send_json_error(['message' => 'Processador de pagamento não disponível. Entre em contato com o administrador.']);
+        return;
+    }
+    
+    try {
+        // Preparar dados de pagamento
+        $payment_data = [
+            'payment_method' => $payment_method,
+            'payment_data' => []
+        ];
+        
+        // Calcular valor total
+        $total_amount = 0;
+        foreach ($session_products as $product) {
+            $total_amount += isset($product['price']) ? floatval($product['price']) : 0;
+        }
+        
+        // Definir descrição padrão
+        $description = count($session_products) > 1 
+            ? 'Compra de ' . count($session_products) . ' produtos' 
+            : 'Compra de ' . $session_products[0]['name'];
+        
+        // Processar com base no método de pagamento
+        if ($payment_method === 'new_card') {
+            // Processar pagamento com novo cartão
+            if (!isset($_POST['card_token']) || empty($_POST['card_token'])) {
+                wp_send_json_error(['message' => 'Token do cartão não fornecido.']);
+                return;
+            }
+            
+            $payment_data['payment_data'] = [
+                'token' => sanitize_text_field($_POST['card_token']),
+                'payment_method_id' => isset($_POST['payment_method_id']) ? sanitize_text_field($_POST['payment_method_id']) : '',
+                'issuer_id' => isset($_POST['issuer_id']) ? sanitize_text_field($_POST['issuer_id']) : '',
+                'transaction_amount' => $total_amount,
+                'installments' => 1,
+                'description' => $description,
+                'payer' => [
+                    'email' => get_user_meta($user_id, 'billing_email', true) ?: get_userdata($user_id)->user_email
+                ]
+            ];
+            
+            // Verificar se deve salvar o cartão
+            $save_card = isset($_POST['save_card']) && $_POST['save_card'] == 'true';
+            if ($save_card) {
+                $payment_data['save_card'] = true;
+            }
+            
+        } elseif ($payment_method === 'saved_card') {
+            // Processar pagamento com cartão salvo
+            if (!isset($_POST['saved_card_id']) || empty($_POST['saved_card_id'])) {
+                wp_send_json_error(['message' => 'ID do cartão salvo não fornecido.']);
+                return;
+            }
+            
+            $card_id = sanitize_text_field($_POST['saved_card_id']);
+            
+            // Buscar cartões salvos do usuário
+            $saved_cards = get_user_mercadopago_cards($user_id);
+            
+            // Verificar se o cartão existe
+            if (!isset($saved_cards[$card_id])) {
+                wp_send_json_error(['message' => 'Cartão não encontrado. Por favor, selecione outro cartão ou adicione um novo.']);
+                return;
+            }
+            
+            $payment_data['payment_data'] = [
+                'saved_card_id' => $card_id,
+                'description' => $description,
+                'amount' => $total_amount
+            ];
+        } else {
+            wp_send_json_error(['message' => 'Método de pagamento não suportado.']);
+            return;
+        }
+        
+        // Log para debug
+        error_log('Dados de pagamento: ' . json_encode($payment_data));
+        
+        // Processar pagamento
+        $result = process_payment_with_method('mercadopago', $payment_data, $session_products[0]); // Usa o primeiro produto como referência
+        
+        if ($result['success']) {
+            // Criar registro de pagamento
+            $payment_id = create_multi_product_payment_record($user_id, $session_products, $result);
+            
+            // Ativar produtos comprados
+            activate_purchased_products($session_products, $result);
+            
+            // Limpar produtos da sessão
+            unset($_SESSION['checkout_products']);
+            
+            // Retornar sucesso
+            wp_send_json_success([
+                'message' => 'Pagamento processado com sucesso!',
+                'payment_id' => $payment_id,
+                'redirect_url' => home_url('/corretores/pagamentos/') . '?payment_success=1'
+            ]);
+        } else {
+            wp_send_json_error([
+                'message' => 'Erro no processamento do pagamento: ' . $result['message']
+            ]);
+        }
+        
+    } catch (Exception $e) {
+        error_log('Erro ao processar pagamento: ' . $e->getMessage());
+        wp_send_json_error([
+            'message' => 'Erro interno ao processar pagamento: ' . $e->getMessage()
+        ]);
+    }
 }
-add_action('wp_ajax_handle_multi_product_payment', 'handle_multi_product_payment_ajax'); 
+add_action('wp_ajax_handle_multi_product_payment', 'handle_multi_product_payment_ajax');
+
+/**
+ * Processa o webhook do Mercado Pago
+ */
+function handle_mercadopago_webhook() {
+    // Verificar se é uma requisição POST
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        status_header(405);
+        die('Método não permitido');
+    }
+    
+    // Obter o corpo da requisição
+    $request_body = file_get_contents('php://input');
+    $data = json_decode($request_body, true);
+    
+    // Verificar se os dados são válidos
+    if (empty($data) || !isset($data['action']) || !isset($data['data'])) {
+        status_header(400);
+        die('Dados inválidos');
+    }
+    
+    // Registrar o webhook no log
+    if (function_exists('write_log')) {
+        write_log('Webhook do Mercado Pago recebido: ' . $request_body);
+    }
+    
+    // Processar apenas notificações de pagamento
+    if ($data['action'] !== 'payment.created' && $data['action'] !== 'payment.updated') {
+        status_header(200);
+        die('Evento ignorado: ' . $data['action']);
+    }
+    
+    // Obter o ID do pagamento
+    $payment_id = isset($data['data']['id']) ? $data['data']['id'] : '';
+    if (empty($payment_id)) {
+        status_header(400);
+        die('ID do pagamento não encontrado');
+    }
+    
+    // Obter os detalhes do pagamento da API do Mercado Pago
+    $access_token = get_option('mercadopago_access_token', '');
+    if (empty($access_token)) {
+        status_header(500);
+        die('Token de acesso não configurado');
+    }
+    
+    $api_url = "https://api.mercadopago.com/v1/payments/{$payment_id}";
+    $args = array(
+        'headers' => array(
+            'Authorization' => 'Bearer ' . $access_token,
+            'Content-Type' => 'application/json'
+        )
+    );
+    
+    $response = wp_remote_get($api_url, $args);
+    
+    if (is_wp_error($response)) {
+        status_header(500);
+        die('Erro ao consultar a API do Mercado Pago: ' . $response->get_error_message());
+    }
+    
+    $payment_data = json_decode(wp_remote_retrieve_body($response), true);
+    
+    if (empty($payment_data) || !isset($payment_data['status'])) {
+        status_header(500);
+        die('Dados do pagamento inválidos');
+    }
+    
+    // Verificar se o pagamento foi aprovado
+    if ($payment_data['status'] !== 'approved') {
+        status_header(200);
+        die('Status do pagamento: ' . $payment_data['status']);
+    }
+    
+    // Extrair informações do pagamento
+    $external_reference = isset($payment_data['external_reference']) ? $payment_data['external_reference'] : '';
+    if (empty($external_reference)) {
+        status_header(400);
+        die('Referência externa não encontrada');
+    }
+    
+    // A referência externa deve estar no formato "product_id:user_id"
+    $reference_parts = explode(':', $external_reference);
+    if (count($reference_parts) !== 2) {
+        status_header(400);
+        die('Formato de referência externa inválido');
+    }
+    
+    $product_id = $reference_parts[0];
+    $user_id = $reference_parts[1];
+    
+    // Processar o pagamento
+    $payment_confirmation_data = array(
+        'payment_id' => $payment_id,
+        'product_id' => $product_id,
+        'user_id' => $user_id,
+        'payment_method' => 'mercadopago',
+        'status' => $payment_data['status'],
+        'amount' => $payment_data['transaction_amount'],
+        'payment_data' => $payment_data
+    );
+    
+    $result = process_payment_confirmation($payment_confirmation_data);
+    
+    if (!$result['success']) {
+        status_header(500);
+        die('Erro ao processar o pagamento: ' . $result['message']);
+    }
+    
+    status_header(200);
+    die('Pagamento processado com sucesso');
+}
+
+// Registrar o endpoint do webhook
+function register_mercadopago_webhook_endpoint() {
+    add_rewrite_rule('^mercadopago-webhook/?$', 'index.php?mercadopago_webhook=1', 'top');
+    add_rewrite_tag('%mercadopago_webhook%', '([0-9]+)');
+}
+add_action('init', 'register_mercadopago_webhook_endpoint');
+
+// Processar o webhook quando o endpoint for acessado
+function process_mercadopago_webhook_request() {
+    global $wp;
+    if (isset($wp->query_vars['mercadopago_webhook'])) {
+        handle_mercadopago_webhook();
+        exit;
+    }
+}
+add_action('parse_request', 'process_mercadopago_webhook_request'); 

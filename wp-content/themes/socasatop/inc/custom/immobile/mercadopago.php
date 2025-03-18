@@ -9,7 +9,7 @@ class Immobile_Payment {
         $this->config = [
             'sandbox' => true,
             'public_key' => 'TEST-70b46d06-add9-499a-942e-0f5c01b8769a',
-            'access_token' => 'TEST-1105123470040162-010319-784660b8cba90a127251b50a9e066db6-242756635'
+            'access_token' => 'TEST-110512347004016-010319-784660b8cba90a127251b50a9e066db6-242756635'
         ];
     }
 
@@ -84,6 +84,85 @@ class Immobile_Payment {
                     $message
                 );
             }
+        }
+    }
+
+    public function process_saved_card_payment($payment_data) {
+        // Verificar dados necessários
+        if (empty($payment_data['saved_card_id'])) {
+            return [
+                'success' => false,
+                'message' => 'ID do cartão salvo não fornecido.'
+            ];
+        }
+        
+        // Obter dados do usuário e cartão
+        $user_id = isset($payment_data['user_id']) ? $payment_data['user_id'] : get_current_user_id();
+        $card_id = $payment_data['saved_card_id'];
+        
+        // Obter cartões salvos
+        require_once get_stylesheet_directory() . '/inc/custom/broker/payment-settings.php';
+        $cards = get_user_mercadopago_cards($user_id);
+        
+        // Encontrar o cartão pelo ID
+        $card_info = null;
+        foreach ($cards as $id => $card) {
+            if ($id === $card_id || (isset($card['id']) && $card['id'] === $card_id)) {
+                $card_info = $card;
+                break;
+            }
+        }
+        
+        if (!$card_info) {
+            return [
+                'success' => false,
+                'message' => 'Cartão não encontrado.'
+            ];
+        }
+        
+        // Verificar se temos token ou card_id
+        if (empty($card_info['token'])) {
+            // Não temos um token válido - esse é um cenário simulado para desenvolvimento
+            // Em produção, você precisaria implementar a obtenção de um novo token
+            
+            // Em modo sandbox, estamos retornando um sucesso simulado
+            if ($this->config['sandbox']) {
+                return [
+                    'success' => true,
+                    'status' => 'approved',
+                    'id' => 'test_' . uniqid(),
+                    'date_created' => date('Y-m-d H:i:s'),
+                    'message' => 'Pagamento aprovado (simulado)'
+                ];
+            } else {
+                return [
+                    'success' => false,
+                    'message' => 'Token do cartão ausente ou inválido.'
+                ];
+            }
+        }
+        
+        // Configurar dados de pagamento
+        $payment_request = [
+            'transaction_amount' => floatval($payment_data['amount']),
+            'token' => $card_info['token'],
+            'description' => $payment_data['description'] ?? 'Pagamento com cartão salvo',
+            'installments' => 1,
+            'payment_method_id' => $card_info['brand'] ?? 'visa',
+            'payer' => [
+                'email' => get_userdata($user_id)->user_email
+            ]
+        ];
+        
+        // Processar pagamento usando a função existente
+        try {
+            $result = $this->process_payment($payment_request);
+            return $result;
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Erro ao processar pagamento: ' . $e->getMessage()
+            ];
         }
     }
 

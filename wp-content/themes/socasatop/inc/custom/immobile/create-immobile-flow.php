@@ -3,6 +3,22 @@ function create_immobile_flow() {
     if (!is_user_logged_in()) {
         return '<p>Você precisa estar logado para acessar esta página.</p>';
     }
+    
+    // Verificar permissões do usuário
+    $user = wp_get_current_user();
+    $allowed_roles = array('administrator', 'author', 'broker', 'contributor');
+    $has_permission = false;
+    
+    foreach ($allowed_roles as $role) {
+        if (in_array($role, (array) $user->roles)) {
+            $has_permission = true;
+            break;
+        }
+    }
+    
+    if (!$has_permission) {
+        return '<p>Você não tem permissão para adicionar imóveis.</p>';
+    }
 
     $locations = get_terms(array(
         'taxonomy' => 'locations',
@@ -38,6 +54,13 @@ function create_immobile_flow() {
 
     wp_enqueue_script('jquery-ui-sortable');
     wp_enqueue_script('mercadopago-js', 'https://sdk.mercadopago.com/js/v2', [], null, true);
+    
+    // Passar dados para o JavaScript
+    wp_localize_script('jquery', 'site', array(
+        'ajax_url' => admin_url('admin-ajax.php'),
+        'nonce' => wp_create_nonce('immobile_nonce'),
+        'site_url' => site_url()
+    ));
 
     ob_start();
     ?>
@@ -864,18 +887,257 @@ function create_immobile_flow() {
 .social-media-text {
     flex-grow: 1;
 }
+
+/* Estilos para o novo formulário de cartões */
+.payment-methods {
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.payment-method-options {
+    margin-top: 20px;
+}
+
+.payment-option {
+    margin-bottom: 15px;
+    padding: 15px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.saved-cards-list {
+    margin-top: 15px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 15px;
+}
+
+.saved-card-item {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 12px;
+    transition: all 0.2s;
+    background: #f9f9f9;
+}
+
+.saved-card-item:hover {
+    box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+    border-color: #0056b3;
+}
+
+.default-card {
+    border-color: #0056b3;
+    background-color: #f0f7ff;
+}
+
+.card-select {
+    display: flex;
+    cursor: pointer;
+}
+
+.card-select input[type="radio"] {
+    margin-right: 10px;
+    margin-top: 4px;
+}
+
+.card-details {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.card-brand {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.card-brand img {
+    height: 24px;
+    max-width: 40px;
+    object-fit: contain;
+}
+
+.card-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.card-number {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.card-expiry {
+    font-size: 0.9em;
+    color: #666;
+}
+
+.default-badge {
+    background: #0056b3;
+    color: white;
+    padding: 3px 8px;
+    font-size: 0.8em;
+    border-radius: 12px;
+    display: inline-block;
+    margin-top: 8px;
+}
+
+.payment-actions {
+    margin-top: 20px;
+    text-align: center;
+}
+
+#process-payment-button {
+    background: #0056b3;
+    color: white;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+#process-payment-button:hover {
+    background: #004494;
+}
+
+#process-payment-button:disabled {
+    background: #cccccc;
+    cursor: not-allowed;
+}
+
+#new-card-form-container {
+    margin-top: 15px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+/* Estilos para o formulário do MercadoPago */
+.mp-form {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.mp-form-row {
+    margin-bottom: 20px;
+}
+
+.mp-col-12 {
+    width: 100%;
+}
+
+.mp-col-6 {
+    width: 48%;
+    display: inline-block;
+    margin-right: 2%;
+}
+
+.mp-col-6:last-child {
+    margin-right: 0;
+}
+
+.mp-input-container {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 8px;
+    background: #fff;
+    min-height: 40px;
+}
+
+.mp-form label {
+    display: block;
+    margin-bottom: 8px;
+    color: #333;
+    font-weight: 500;
+}
+
+.mp-form input[type="text"],
+.mp-form select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.mp-form select {
+    height: 40px;
+    background: #fff;
+}
+
+.payment-submit-button {
+    width: 100%;
+    padding: 12px 24px;
+    background: #0056b3;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.payment-submit-button:hover {
+    background: #004494;
+}
+
+.payment-submit-button:disabled {
+    background: #cccccc;
+    cursor: not-allowed;
+}
+
+.error-message {
+    color: #dc3545;
+    padding: 10px;
+    margin-top: 10px;
+    border: 1px solid #dc3545;
+    border-radius: 4px;
+    background: #fff;
+}
+
+/* Estilos para o iframe do MercadoPago */
+.mp-iframe-container {
+    width: 100%;
+    min-height: 400px;
+}
+
+@media (max-width: 768px) {
+    .mp-col-6 {
+        width: 100%;
+        margin-right: 0;
+        margin-bottom: 15px;
+    }
+}
     </style>
 
 <script>
     jQuery(document).ready(function($) {
-        if (typeof MercadoPago === 'undefined') {
-            console.error('MercadoPago não foi carregado');
-            return;
-        }
+        // Inicializar MercadoPago com a chave pública
+        const mp = new MercadoPago('TEST-70b46d06-add9-499a-942e-0f5c01b8769a', {
+            locale: 'pt-BR'
+        });
 
         let immobileList = [];
         const marketingProducts = <?php echo json_encode($marketing_products); ?>;
-        const mp = new MercadoPago('TEST-70b46d06-add9-499a-942e-0f5c01b8769a');
+
+        // Verificar se o MercadoPago foi carregado corretamente
+        if (typeof mp === 'undefined' || !mp) {
+            console.error('MercadoPago não foi carregado corretamente');
+            $('#cardPaymentBrick_container').html(`
+                <div class="payment-error-message">
+                    <p>Ocorreu um erro ao carregar a integração de pagamento. Por favor, tente novamente mais tarde.</p>
+                </div>
+            `);
+            return;
+        }
 
         $('#amount').mask('000.000.000.000.000,00', {reverse: true});
 
@@ -1112,157 +1374,484 @@ function create_immobile_flow() {
         }
 
         function setupPaymentBrick(totalValue) {
-    const brickSettings = {
-        initialization: {
-            amount: totalValue
-        },
-        customization: {
-            paymentMethods: {
-                creditCard: 'all',
-                debitCard: 'hidden',
-                ticket: 'hidden'
-            },
-            visual: {
-                hideFormLine: true,
-                style: {
-                    theme: 'default'
-                }
-            },
-            installments: {
-                maxInstallments: 1
+            if (typeof MercadoPago === 'undefined') {
+                console.error('MercadoPago não foi carregado corretamente');
+                $('#cardPaymentBrick_container').html(`
+                    <div class="payment-error-message">
+                        <p>Ocorreu um erro ao carregar a integração de pagamento. Por favor, tente novamente mais tarde.</p>
+                    </div>
+                `);
+                return;
             }
-        },
-        callbacks: {
-            onReady: () => {},
-            onSubmit: async (cardData) => {
-                return new Promise((resolve, reject) => {
-                    const paymentData = {
-                        token: cardData.token,
-                        installments: 1, // Forçar 1 parcela para assinatura mensal
-                        payment_method_id: cardData.payment_method_id,
-                        transaction_amount: totalValue,
-                        payer: {
-                            email: cardData.payer.email,
-                            identification: {
-                                type: cardData.payer.identification.type,
-                                number: cardData.payer.identification.number
-                            }
-                        }
-                    };
+            
+            // Verificar se o usuário tem cartões salvos
+            $.ajax({
+                url: site.ajax_url,
+                method: 'POST',
+                data: {
+                    action: 'get_user_saved_cards',
+                    nonce: site.nonce
+                },
+                success: function(response) {
+                    if (response.success && response.data.cards && response.data.cards.length > 0) {
+                        // Mostrar cartões salvos e opção de novo cartão
+                        renderSavedCardsAndPaymentOptions(response.data.cards, response.data.default_card_id, totalValue);
+                    } else {
+                        // Se não tiver cartões salvos, mostrar apenas o formulário de novo cartão
+                        renderNewCardPaymentBrick(totalValue);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error("Erro ao obter cartões salvos:", error);
+                    // Em caso de erro, mostrar apenas o formulário de novo cartão
+                    renderNewCardPaymentBrick(totalValue);
+                }
+            });
+        }
 
-                    $.ajax({
-                        url: site.ajax_url,
-                        method: 'POST',
-                        data: {
-                            action: 'process_immobile_creation_payment',
-                            payment_data: paymentData,
-                            immobile_list: immobileList,
-                            nonce: site.nonce
+        function renderSavedCardsAndPaymentOptions(cards, defaultCardId, totalValue) {
+            // Limpar o container
+            const $container = $('#cardPaymentBrick_container');
+            $container.empty();
+            
+            // Adicionar HTML para seleção de forma de pagamento
+            $container.html(`
+                <div class="payment-methods">
+                    <h4>Escolha como pagar</h4>
+                    
+                    <div class="payment-method-options">
+                        <div class="payment-option">
+                            <label>
+                                <input type="radio" name="payment_method" value="saved_card" checked>
+                                <span>Cartão salvo</span>
+                            </label>
+                            
+                            <div class="saved-cards-container">
+                                <div class="saved-cards-list"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="payment-option">
+                            <label>
+                                <input type="radio" name="payment_method" value="new_card">
+                                <span>Novo cartão</span>
+                            </label>
+                            
+                            <div id="new-card-form-container" style="display: none;"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="payment-actions">
+                        <button id="process-payment-button" class="button button-primary">Finalizar Pagamento</button>
+                    </div>
+                </div>
+            `);
+            
+            // Renderizar os cartões salvos
+            const $savedCardsList = $('.saved-cards-list');
+            let html = '';
+            
+            cards.forEach(function(card) {
+                const isDefault = card.id === defaultCardId;
+                const cardBrand = card.brand || 'unknown';
+                const cardNumber = card.last_four || '****';
+                const expMonth = card.expiry_month || card.expiration_month || '**';
+                const expYear = card.expiry_year || card.expiration_year || '****';
+                
+                html += `<div class="saved-card-item ${isDefault ? 'default-card' : ''}">
+                    <label class="card-select">
+                        <input type="radio" name="payment_card" value="${card.id}" ${isDefault ? 'checked' : ''}>
+                        <div class="card-details">
+                            <div class="card-brand">
+                                <img src="${getCardBrandLogo(cardBrand)}" alt="${cardBrand}" 
+                                    onerror="this.src='${getCardBrandLogo('generic-card')}';">
+                            </div>
+                            <div class="card-info">
+                                <span class="card-number">•••• •••• •••• ${cardNumber}</span>
+                                <span class="card-expiry">Válido até: ${expMonth}/${expYear}</span>
+                            </div>
+                            ${isDefault ? '<span class="default-badge">Padrão</span>' : ''}
+                        </div>
+                    </label>
+                </div>`;
+            });
+            
+            $savedCardsList.html(html);
+            
+            // Alternar entre cartão salvo e novo cartão
+            $('input[name="payment_method"]').on('change', function() {
+                if ($(this).val() === 'new_card') {
+                    $('.saved-cards-container').hide();
+                    $('#new-card-form-container').show();
+                    // Inicializar o brick de novo cartão se ainda não foi inicializado
+                    if ($('#new-card-form-container').is(':empty')) {
+                        renderNewCardPaymentBrick(totalValue, 'new-card-form-container');
+                    }
+                } else {
+                    $('.saved-cards-container').show();
+                    $('#new-card-form-container').hide();
+                }
+            });
+            
+            // Processar pagamento ao clicar no botão
+            $('#process-payment-button').on('click', function() {
+                const paymentMethod = $('input[name="payment_method"]:checked').val();
+                
+                if (paymentMethod === 'saved_card') {
+                    const cardId = $('input[name="payment_card"]:checked').val();
+                    processSavedCardPayment(cardId, totalValue);
+                } else {
+                    // O formulário de novo cartão será processado pelo próprio brick
+                }
+            });
+        }
+
+        function getCardBrandLogo(brand) {
+            return `${site.site_url}/wp-content/themes/socasatop/inc/custom/broker/assets/images/card-brands/${brand}.png`;
+        }
+
+        function processSavedCardPayment(cardId, totalValue) {
+            $('#process-payment-button').prop('disabled', true).text('Processando...');
+            
+            $.ajax({
+                url: site.ajax_url,
+                method: 'POST',
+                data: {
+                    action: 'process_immobile_creation_payment',
+                    payment_method: 'saved_card',
+                    saved_card_id: cardId,
+                    immobile_list: immobileList,
+                    amount: totalValue,
+                    nonce: site.nonce
+                },
+                success: function(response) {
+                    if (response.success) {
+                        Swal.fire({
+                            title: 'Sucesso!',
+                            text: 'Cartão validado com sucesso! Você terá 30 dias grátis.',
+                            icon: 'success',
+                            confirmButtonText: 'OK'
+                        }).then(() => {
+                            window.location.href = '/meus-imoveis';
+                        });
+                    } else {
+                        Swal.fire({
+                            title: 'Erro!',
+                            text: response.data.message || 'Erro ao processar pagamento',
+                            icon: 'error',
+                            confirmButtonText: 'OK'
+                        });
+                        $('#process-payment-button').prop('disabled', false).text('Finalizar Pagamento');
+                    }
+                },
+                error: function(error) {
+                    Swal.fire({
+                        title: 'Erro!',
+                        text: 'Erro ao processar pagamento',
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
+                    $('#process-payment-button').prop('disabled', false).text('Finalizar Pagamento');
+                }
+            });
+        }
+
+        function renderNewCardPaymentBrick(totalValue, containerId = 'cardPaymentBrick_container') {
+            const $container = $('#' + containerId);
+            if (!$container.length) {
+                console.error("Container " + containerId + " não encontrado");
+                return null;
+            }
+            
+            $container.empty().html(`
+                <div class="card-form-wrapper">
+                    <form id="card-form-new" class="mp-form">
+                        <div id="form-checkout">
+                            <div class="mp-form-row">
+                                <div class="mp-col-12">
+                                    <label for="form-checkout__cardholderName">Nome no cartão</label>
+                                    <input type="text" id="form-checkout__cardholderName" />
+                                </div>
+                            </div>
+                            
+                            <div class="mp-form-row">
+                                <div class="mp-col-12">
+                                    <label>Número do cartão</label>
+                                    <div id="form-checkout__cardNumber" class="mp-input-container"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="mp-form-row">
+                                <div class="mp-col-6">
+                                    <label>Data de validade</label>
+                                    <div id="form-checkout__expirationDate" class="mp-input-container"></div>
+                                </div>
+                                <div class="mp-col-6">
+                                    <label>Código de segurança</label>
+                                    <div id="form-checkout__securityCode" class="mp-input-container"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="mp-form-row">
+                                <div class="mp-col-6">
+                                    <label for="form-checkout__identificationType">Tipo de documento</label>
+                                    <select id="form-checkout__identificationType"></select>
+                                </div>
+                                <div class="mp-col-6">
+                                    <label for="form-checkout__identificationNumber">Número do documento</label>
+                                    <input type="text" id="form-checkout__identificationNumber"/>
+                                </div>
+                            </div>
+
+                            <div class="mp-form-row">
+                                <div class="mp-col-12">
+                                    <label for="form-checkout__issuer">Banco emissor</label>
+                                    <select id="form-checkout__issuer"></select>
+                                </div>
+                            </div>
+
+                            <div class="mp-form-row">
+                                <div class="mp-col-12">
+                                    <label for="form-checkout__installments">Parcelas</label>
+                                    <select id="form-checkout__installments"></select>
+                                </div>
+                            </div>
+
+                            <div class="mp-form-row">
+                                <div class="mp-col-12">
+                                    <input type="hidden" id="amount" value="${totalValue}" />
+                                    <input type="hidden" name="paymentMethodId" id="paymentMethodId" />
+                                    <input type="hidden" name="token" id="token" />
+                                </div>
+                            </div>
+
+                            <div class="mp-form-row">
+                                <div class="mp-col-12">
+                                    <button type="submit" id="form-checkout__submit" class="payment-submit-button">Salvar cartão e finalizar</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="result-message"></div>
+                    </form>
+                </div>
+            `);
+
+            try {
+                const cardForm = mp.cardForm({
+                    amount: totalValue.toString(),
+                    iframe: true,
+                    form: {
+                        id: "card-form-new",
+                        cardholderName: {
+                            id: "form-checkout__cardholderName",
+                            placeholder: "Titular do cartão"
                         },
-                        success: function(response) {
-                            if (response.success) {
-                                Swal.fire({
-                                    title: 'Sucesso!',
-                                    text: 'Cartão validado com sucesso! Você terá 30 dias grátis.',
-                                    icon: 'success',
-                                    confirmButtonText: 'OK'
-                                }).then(() => {
-                                    window.location.href = '/meus-imoveis';
-                                });
-                                resolve();
+                        cardNumber: {
+                            id: "form-checkout__cardNumber",
+                            placeholder: "Número do cartão"
+                        },
+                        expirationDate: {
+                            id: "form-checkout__expirationDate",
+                            placeholder: "MM/YY"
+                        },
+                        securityCode: {
+                            id: "form-checkout__securityCode",
+                            placeholder: "CVV"
+                        },
+                        identificationType: {
+                            id: "form-checkout__identificationType"
+                        },
+                        identificationNumber: {
+                            id: "form-checkout__identificationNumber",
+                            placeholder: "CPF"
+                        },
+                        issuer: {
+                            id: "form-checkout__issuer",
+                            placeholder: "Banco emissor"
+                        },
+                        installments: {
+                            id: "form-checkout__installments",
+                            placeholder: "Parcelas"
+                        },
+                        submit: {
+                            id: "form-checkout__submit"
+                        }
+                    },
+                    callbacks: {
+                        onFormMounted: function(error) {
+                            if (error) {
+                                console.error("Erro ao montar formulário:", error);
+                                $('#result-message').html('<div class="error-message">Erro ao carregar formulário de cartão. Tente novamente mais tarde.</div>');
                             } else {
-                                Swal.fire({
-                                    title: 'Erro!',
-                                    text: response.data.message || 'Erro ao processar pagamento',
-                                    icon: 'error',
-                                    confirmButtonText: 'OK'
-                                });
-                                reject();
+                                console.log("Formulário montado com sucesso");
                             }
                         },
-                        error: function(error) {
-                            Swal.fire({
-                                title: 'Erro!',
-                                text: 'Erro ao processar pagamento',
-                                icon: 'error',
-                                confirmButtonText: 'OK'
-                            });
-                            reject();
+                        onIdentificationTypesReceived: function(error, identificationTypes) {
+                            if (error) {
+                                console.error("Erro ao obter tipos de documento:", error);
+                            }
+                        },
+                        onPaymentMethodsReceived: function(error, paymentMethods) {
+                            if (error) {
+                                console.error("Erro ao obter métodos de pagamento:", error);
+                            }
+                        },
+                        onIssuersReceived: function(error, issuers) {
+                            if (error) {
+                                console.error("Erro ao obter bancos:", error);
+                            }
+                        },
+                        onInstallmentsReceived: function(error, installments) {
+                            if (error) {
+                                console.error("Erro ao obter parcelas:", error);
+                            }
+                        },
+                        onCardTokenReceived: function(error, token) {
+                            if (error) {
+                                console.error("Erro ao gerar token do cartão:", error);
+                                $('#result-message').html('<div class="error-message">Erro ao processar o cartão. Verifique os dados e tente novamente.</div>');
+                                $('#process-payment-button').prop('disabled', false).text('Finalizar Pagamento');
+                            } else {
+                                console.log("Token gerado com sucesso:", token);
+                                processNewCardPayment(token, totalValue);
+                            }
                         }
-                    });
+                    }
                 });
-            },
-            onError: (error) => {
-                console.error('Erro brick:', error);
-                Swal.fire({
-                    title: 'Erro!',
-                    text: 'Erro ao processar pagamento',
-                    icon: 'error',
-                    confirmButtonText: 'OK'
-                });
+
+                return cardForm;
+            } catch (error) {
+                console.error("Erro ao inicializar o formulário de cartão:", error);
+                $('#result-message').html('<div class="error-message">Erro ao inicializar o formulário: ' + error.message + '</div>');
+                return null;
             }
         }
-    };
 
-    return mp.bricks().create('cardPayment', 'cardPaymentBrick_container', brickSettings);
-}
+        function processNewCardPayment(cardToken, totalValue) {
+            if (!cardToken) {
+                $('#result-message').html('<div class="error-message">Token do cartão inválido.</div>');
+                $('#process-payment-button').prop('disabled', false).text('Finalizar Pagamento');
+                return;
+            }
+
+            const formData = {
+                action: 'process_immobile_creation_payment',
+                payment_method: 'new_card',
+                payment_data: {
+                    token: cardToken.id,
+                    payment_method_id: $('#paymentMethodId').val(),
+                    issuer_id: $('#form-checkout__issuer').val(),
+                    installments: $('#form-checkout__installments').val() || 1,
+                    transaction_amount: totalValue,
+                    payer: {
+                        email: '<?php echo wp_get_current_user()->user_email; ?>',
+                        identification: {
+                            type: $('#form-checkout__identificationType').val(),
+                            number: $('#form-checkout__identificationNumber').val()
+                        }
+                    }
+                },
+                immobile_list: immobileList,
+                nonce: site.nonce
+            };
+
+            $.ajax({
+                url: site.ajax_url,
+                method: 'POST',
+                data: formData,
+                success: function(response) {
+                    if (response.success) {
+                        Swal.fire({
+                            title: 'Sucesso!',
+                            text: 'Cartão validado com sucesso! Você terá 30 dias grátis.',
+                            icon: 'success',
+                            confirmButtonText: 'OK'
+                        }).then(() => {
+                            window.location.href = '/meus-imoveis';
+                        });
+                    } else {
+                        const errorMessage = response.data && response.data.message 
+                            ? response.data.message 
+                            : 'Erro ao processar pagamento. Por favor, tente novamente.';
+                        
+                        Swal.fire({
+                            title: 'Erro!',
+                            text: errorMessage,
+                            icon: 'error',
+                            confirmButtonText: 'OK'
+                        });
+                        $('#process-payment-button').prop('disabled', false).text('Finalizar Pagamento');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Erro na requisição:', error);
+                    Swal.fire({
+                        title: 'Erro!',
+                        text: 'Erro ao processar pagamento. Por favor, tente novamente mais tarde.',
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
+                    $('#process-payment-button').prop('disabled', false).text('Finalizar Pagamento');
+                }
+            });
+        }
 
         function updateSummary() {
-    const $summaryList = $('#summary-list');
-    const $totalSummary = $('#total-summary');
-    let totalValue = 0;
+            const $summaryList = $('#summary-list');
+            const $totalSummary = $('#total-summary');
+            let totalValue = 0;
 
-    $summaryList.empty();
-    
-    immobileList.forEach((immobile, index) => {
-        let immobileTotal = 15; // Valor base do imóvel
-        const selectedProducts = [];
+            $summaryList.empty();
+            
+            immobileList.forEach((immobile, index) => {
+                let immobileTotal = 15; // Valor base do imóvel
+                const selectedProducts = [];
 
-        $(`input[name="marketing_products[${index}][]"]:checked`).each(function() {
-            const productKey = $(this).val();
-            const productPrice = marketingProducts[productKey].price;
-            immobileTotal += productPrice;
-            selectedProducts.push(marketingProducts[productKey].name);
-        });
+                $(`input[name="marketing_products[${index}][]"]:checked`).each(function() {
+                    const productKey = $(this).val();
+                    const productPrice = marketingProducts[productKey].price;
+                    immobileTotal += productPrice;
+                    selectedProducts.push(marketingProducts[productKey].name);
+                });
 
-        totalValue += immobileTotal;
+                totalValue += immobileTotal;
 
-        $summaryList.append(`
-            <div class="summary-item">
-                <div class="summary-header">
-                    <h3>${immobile.immobile_name}</h3>
-                    <span class="summary-price">R$ ${immobileTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>
+                $summaryList.append(`
+                    <div class="summary-item">
+                        <div class="summary-header">
+                            <h3>${immobile.immobile_name}</h3>
+                            <span class="summary-price">R$ ${immobileTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>
+                        </div>
+                        <div class="summary-details">
+                            <p><strong>Localização:</strong> ${immobile.location}</p>
+                            <p><strong>Tipo:</strong> ${immobile.property_type}</p>
+                            ${selectedProducts.length > 0 ? 
+                                `<p><strong>Serviços Contratados:</strong></p>
+                                <ul class="services-list">
+                                    ${selectedProducts.map(product => `<li>${product}</li>`).join('')}
+                                </ul>` : 
+                                '<p>Nenhum serviço adicional selecionado</p>'
+                            }
+                        </div>
+                    </div>
+                `);
+            });
+
+            $totalSummary.html(`
+                <div class="total-summary-content">
+                    <div class="summary-info">
+                        <h3>Resumo do Pedido</h3>
+                        <p>Total de Imóveis: ${immobileList.length}</p>
+                    </div>
+                    <div class="total-price">
+                        <h4>Valor Total</h4>
+                        <p>R$ ${totalValue.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
+                    </div>
                 </div>
-                <div class="summary-details">
-                    <p><strong>Localização:</strong> ${immobile.location}</p>
-                    <p><strong>Tipo:</strong> ${immobile.property_type}</p>
-                    ${selectedProducts.length > 0 ? 
-                        `<p><strong>Serviços Contratados:</strong></p>
-                        <ul class="services-list">
-                            ${selectedProducts.map(product => `<li>${product}</li>`).join('')}
-                        </ul>` : 
-                        '<p>Nenhum serviço adicional selecionado</p>'
-                    }
-                </div>
-            </div>
-        `);
-    });
+            `);
 
-    $totalSummary.html(`
-        <div class="total-summary-content">
-            <div class="summary-info">
-                <h3>Resumo do Pedido</h3>
-                <p>Total de Imóveis: ${immobileList.length}</p>
-            </div>
-            <div class="total-price">
-                <h4>Valor Total</h4>
-                <p>R$ ${totalValue.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
-            </div>
-        </div>
-    `);
-
-    setupPaymentBrick(totalValue);
-}
+            setupPaymentBrick(totalValue);
+        }
 
         $('#next-step').on('click', function() {
             const currentStep = $('.nav-step.active').data('step');

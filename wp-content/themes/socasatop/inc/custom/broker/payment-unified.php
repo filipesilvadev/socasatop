@@ -289,4 +289,39 @@ function unified_payment_shortcode($atts) {
 }
 
 // Registrar shortcode
-add_shortcode('unified_payment', 'unified_payment_shortcode'); 
+add_shortcode('unified_payment', 'unified_payment_shortcode');
+
+/**
+ * Processa um pagamento usando o método específico
+ * 
+ * @param string $method Nome do método de pagamento (ex: 'mercadopago')
+ * @param array $payment_data Dados do pagamento
+ * @param array $product Informações do produto
+ * @return array Resultado do processamento
+ */
+function process_payment_with_method($method, $payment_data, $product) {
+    // Registrar para depuração
+    error_log('Processando pagamento com método: ' . $method);
+    error_log('Dados de pagamento: ' . json_encode($payment_data));
+    error_log('Produto: ' . json_encode($product));
+    
+    // Resultado padrão
+    $result = [
+        'success' => false,
+        'message' => 'Método de pagamento não implementado',
+        'payment_id' => '',
+        'status' => 'error'
+    ];
+    
+    // Usar filtro para processar o pagamento com o método específico
+    $hook_name = 'socasa_process_payment_method_' . $method;
+    
+    if (has_filter($hook_name)) {
+        $result = apply_filters($hook_name, $result, $payment_data, $product);
+    } else {
+        error_log('Filtro não encontrado para o método de pagamento: ' . $hook_name);
+        $result['message'] = 'Processador de pagamento não encontrado para o método: ' . $method;
+    }
+    
+    return $result;
+} 

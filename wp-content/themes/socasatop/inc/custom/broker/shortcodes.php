@@ -267,134 +267,120 @@ function payment_settings_shortcode() {
     // Obter o ID do usuário
     $user_id = get_current_user_id();
     
-    // Obter os cartões salvos
-    $saved_cards = get_user_meta($user_id, 'mercadopago_cards', true);
-    
-    if (!is_array($saved_cards)) {
-        $saved_cards = array();
-    }
+    // Obter os cartões salvos usando a função melhorada
+    $saved_cards = get_user_mercadopago_cards($user_id);
     
     // Identificar cartão padrão
-    $default_card_id = false;
-    foreach ($saved_cards as $id => $card) {
-        if (isset($card['is_default']) && $card['is_default']) {
-            $default_card_id = $id;
-            break;
-        }
-    }
+    $default_card_id = get_user_meta($user_id, 'default_payment_card', true);
     
     // Iniciar o buffer de saída
     ob_start();
     
     // Container principal
-    echo '<div class="payment-settings-container">';
+    echo '<div class="payment-settings-container" style="max-width: 1200px; margin: 0 auto; padding: 20px;">';
     
     // Título da seção
     echo '<h2 class="section-title">Configurações de Pagamento</h2>';
     
-    // Mensagem de ambiente de teste
-    echo '<div class="alert alert-info mb-4">
-        <strong>Ambiente de teste:</strong> Este é um ambiente simulado para fins de desenvolvimento.
-        Os cartões e transações exibidos são fictícios.
-    </div>';
+    // Injetar o JavaScript para definir o ajaxurl globalmente
+    echo '<script type="text/javascript">
+        var ajaxurl = "' . admin_url('admin-ajax.php') . '";
+        // Definir variáveis para depuração
+        window.debug_info = {
+            ajax_url_set: true,
+            user_id: ' . $user_id . ',
+            timestamp: "' . date('Y-m-d H:i:s') . '"
+        };
+    </script>';
     
-    // Seção de cartões
-    echo '<h3>Meus Cartões</h3>';
+    // Seção de cartões salvos
+    echo '<div class="saved-cards-section" style="margin-top: 20px; margin-bottom: 30px;">';
+    echo '<h3>Cartões Salvos</h3>';
     
     if (!empty($saved_cards)) {
-        echo '<div class="cards-container">';
+        echo '<div class="saved-cards-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin-top: 20px;">';
         
-        foreach ($saved_cards as $id => $card) {
-            $is_default = isset($card['is_default']) && $card['is_default'];
-            $card_class = $is_default ? 'card-item default' : 'card-item';
-            $brand = isset($card['payment_method_id']) ? $card['payment_method_id'] : 'unknown';
-            $last_digits = isset($card['last_four_digits']) ? $card['last_four_digits'] : '****';
-            $expiry_month = isset($card['expiration_month']) ? $card['expiration_month'] : '**';
-            $expiry_year = isset($card['expiration_year']) ? $card['expiration_year'] : '****';
+        foreach ($saved_cards as $card_id => $card) {
+            // Garantir que todos os campos necessários existam
+            $last_four = isset($card['last_four']) ? $card['last_four'] : (isset($card['last_four_digits']) ? $card['last_four_digits'] : '****');
+            $brand = isset($card['brand']) ? $card['brand'] : (isset($card['payment_method_id']) ? $card['payment_method_id'] : 'card');
+            $expiry_month = isset($card['expiry_month']) ? $card['expiry_month'] : (isset($card['expiration_month']) ? $card['expiration_month'] : '**');
+            $expiry_year = isset($card['expiry_year']) ? $card['expiry_year'] : (isset($card['expiration_year']) ? $card['expiration_year'] : '****');
             
-            echo '<div class="' . $card_class . '">';
+            // Estilo do cartão
+            echo '<div class="saved-card" style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">';
             
-            if ($is_default) {
-                echo '<span class="default-badge">Padrão</span>';
+            // Indicador de cartão padrão se aplicável
+            if ($card_id === $default_card_id) {
+                echo '<div class="default-label" style="background-color: #28a745; color: white; display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">Cartão Padrão</div>';
             }
             
-            echo '<div class="card-brand">';
-            echo '<img src="' . get_card_brand_logo($brand) . '" alt="' . $brand . '">';
-            echo '<span>' . get_card_brand_name($brand) . '</span>';
+            echo '<div class="card-details" style="display: flex; align-items: center; margin-bottom: 15px;">';
+            
+            // Logo da bandeira do cartão
+            echo '<div class="card-brand" style="margin-right: 15px;">';
+            $brand_logo_url = get_template_directory_uri() . '/inc/custom/broker/assets/images/card-brands/' . strtolower($brand) . '.png';
+            $default_card_logo = get_template_directory_uri() . '/inc/custom/broker/assets/images/card-brands/generic-card.png';
+            echo '<img src="' . esc_url($brand_logo_url) . '" alt="' . esc_attr($brand) . '" style="width: 50px; height: auto;" onerror="this.src=\'' . $default_card_logo . '\';">';
             echo '</div>';
             
-            echo '<div class="card-details">';
-            echo '<div class="card-number">**** **** **** ' . $last_digits . '</div>';
-            echo '<div class="card-expiry">Válido até: ' . $expiry_month . '/' . $expiry_year . '</div>';
+            // Informações do cartão
+            echo '<div class="card-info">';
+            echo '<div class="card-number" style="font-size: 16px; font-weight: bold;">•••• •••• •••• ' . esc_html($last_four) . '</div>';
+            echo '<div class="card-expiry" style="color: #666; font-size: 14px;">Validade: ' . esc_html($expiry_month) . '/' . esc_html($expiry_year) . '</div>';
             echo '</div>';
             
-            echo '<div class="card-actions">';
+            echo '</div>';
             
-            if (!$is_default) {
-                echo '<button class="button button-secondary set-default-card" data-card-id="' . $id . '">Definir como padrão</button>';
+            // Botões de ação
+            echo '<div class="card-actions" style="display: flex; justify-content: space-between;">';
+            
+            // Botão para definir como padrão (apenas se não for o padrão atual)
+            if ($card_id !== $default_card_id) {
+                echo '<button class="set-default-card" data-card-id="' . esc_attr($card_id) . '" style="background-color: #007bff; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;">Definir como padrão</button>';
+            } else {
+                echo '<div style="width: 140px;"></div>'; // Espaçador
             }
             
-            echo '<button class="button button-danger delete-card" data-card-id="' . $id . '">Remover</button>';
-            echo '</div>';
+            // Botão para remover o cartão
+            echo '<button class="remove-card" data-card-id="' . esc_attr($card_id) . '" style="background-color: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;">Remover</button>';
             
             echo '</div>';
+            echo '</div>'; // Fim do cartão
         }
         
-        echo '</div>';
+        echo '</div>'; // Fim do grid
     } else {
-        echo '<div class="alert alert-warning">Você ainda não possui cartões cadastrados.</div>';
+        echo '<div class="no-cards-message" style="padding: 20px; background-color: #f8f9fa; border-radius: 8px; text-align: center; margin-top: 20px;">
+            <p>Você ainda não possui cartões salvos.</p>
+        </div>';
     }
     
-    // Seção para adicionar novo cartão
-    echo '<div class="add-card-section">';
-    echo '<button id="add-new-card" class="button button-primary">Adicionar novo cartão</button>';
+    echo '</div>'; // Fim da seção de cartões
+    
+    // Botão para adicionar novo cartão
+    echo '<div class="add-card-section" style="margin-top: 20px; text-align: center;">';
+    echo '<button id="add-new-card" class="button button-primary" style="padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;">Adicionar novo cartão</button>';
     echo '</div>';
     
-    // Área para histórico de transações
-    echo '<div class="transactions-section" style="margin-top: 30px;">';
-    echo '<h3>Histórico de Transações</h3>';
-    echo '<p>Aqui você pode ver suas transações recentes:</p>';
+    // Div para exibir mensagens
+    echo '<div id="result-message" style="margin-top: 20px;"></div>';
     
-    // Dados de transações simuladas
-    echo '<table class="transactions-table">
-        <thead>
-            <tr>
-                <th>Data</th>
-                <th>Descrição</th>
-                <th>Valor</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td>' . date('d/m/Y', strtotime('-2 days')) . '</td>
-                <td>Destaque de Imóvel Premium</td>
-                <td>R$ 149,90</td>
-                <td><span class="status-approved">Aprovado</span></td>
-            </tr>
-            <tr>
-                <td>' . date('d/m/Y', strtotime('-10 days')) . '</td>
-                <td>Plano de Anúncios Plus</td>
-                <td>R$ 299,90</td>
-                <td><span class="status-approved">Aprovado</span></td>
-            </tr>
-            <tr>
-                <td>' . date('d/m/Y', strtotime('-15 days')) . '</td>
-                <td>Destaque de Imóvel Básico</td>
-                <td>R$ 79,90</td>
-                <td><span class="status-approved">Aprovado</span></td>
-            </tr>
-        </tbody>
-    </table>';
-    
+    // Div para o formulário de novo cartão
+    echo '<div id="card-form-container" style="display: none; margin-top: 20px; padding: 20px; background-color: #f8f9fa; border-radius: 8px;">';
+    echo '<h3>Novo Cartão</h3>';
+    echo '<form id="card-form" style="margin-top: 15px;">';
+    echo '</form>';
+    echo '<div style="margin-top: 15px; text-align: right;">';
+    echo '<button id="save-card" class="button button-primary" style="background-color: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">Salvar cartão</button>';
+    echo '<button id="cancel-card-form" class="button" style="background-color: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin-left: 10px;">Cancelar</button>';
+    echo '</div>';
     echo '</div>';
     
     echo '</div>'; // Fim do container principal
     
-    // Obter o conteúdo do buffer
-    $output = ob_get_clean();
-    
-    return $output;
+    // Retornar o conteúdo gerado
+    return ob_get_clean();
 }
 add_shortcode('payment_settings', 'payment_settings_shortcode');
 
@@ -416,11 +402,13 @@ function multi_checkout_shortcode($atts) {
 }
 
 /**
- * Registra os scripts e estilos necessários para o sistema de pagamento
+ * A função register_payment_assets foi movida para payment-loader.php
+ * para evitar duplicação e conflitos
  */
+/*
 function register_payment_assets() {
     // Registrar e enfileirar CSS
-    wp_register_style('payment-styles', get_template_directory_uri() . '/inc/custom/broker/assets/css/payment-styles.css');
+    wp_register_style('payment-styles', get_stylesheet_directory_uri() . '/inc/custom/broker/assets/css/payment-styles.css');
     
     // Verificar se estamos em uma página que contém shortcodes de pagamento
     global $post;
@@ -437,6 +425,7 @@ function register_payment_assets() {
     }
 }
 add_action('wp_enqueue_scripts', 'register_payment_assets');
+*/
 
 // Garantir que este arquivo seja carregado
 function load_broker_shortcodes() {

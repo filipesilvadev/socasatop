@@ -364,16 +364,27 @@ function redirect_if_not_logged_in() {
   
   $current_url = $_SERVER['REQUEST_URI'];
 
+  // Páginas que não precisam de autenticação
   if (($ia_page_ID && is_page($ia_page_ID)) || 
       ($registerID && is_page($registerID)) ||
+      ($loginID && is_page($loginID)) ||
       is_singular('immobile') || 
-      strpos($current_url, '/listaimoveis/') === 0) {
+      strpos($current_url, '/listaimoveis/') === 0 ||
+      is_front_page() ||
+      is_home()) {
       return;
   }
 
-  if (!is_user_logged_in() && !is_page($loginID)) {
-      wp_redirect(get_permalink($ia_page_ID));
-      exit;
+  // Se não estiver logado e não estiver na página de login, redireciona para o login
+  if (!is_user_logged_in()) {
+      if ($loginID) {
+          $redirect_url = add_query_arg('redirect_to', urlencode($current_url), get_permalink($loginID));
+          wp_redirect($redirect_url);
+          exit;
+      } else {
+          wp_redirect(wp_login_url($current_url));
+          exit;
+      }
   }
 }
 add_action('template_redirect', 'redirect_if_not_logged_in');
@@ -1011,11 +1022,22 @@ function load_custom_shortcodes() {
     // Carregar diretamente o highlight-payment.php 
     include_once(get_stylesheet_directory() . '/inc/custom/broker/highlight-payment.php');
     
+    // Carregar o formulário de propriedade
+    include_once(get_stylesheet_directory() . '/inc/custom/broker/property-form.php');
+    
     // Carregar o arquivo de shortcodes
     include_once(get_stylesheet_directory() . '/inc/custom/broker/shortcodes.php');
     
     // Carregar o arquivo de integração com o Mercado Pago
     include_once(get_stylesheet_directory() . '/inc/custom/immobile/mercadopago.php');
+    
+    // Carregar estilos de pagamento
+    $payment_styles_url = get_stylesheet_directory_uri() . '/inc/custom/broker/assets/css/payment-styles.css';
+    $payment_styles_version = file_exists(get_stylesheet_directory() . '/inc/custom/broker/assets/css/payment-styles.css') ? 
+                            filemtime(get_stylesheet_directory() . '/inc/custom/broker/assets/css/payment-styles.css') : 
+                            time();
+    wp_register_style('payment-styles', $payment_styles_url, array(), $payment_styles_version);
+    wp_enqueue_style('payment-styles');
 }
 add_action('init', 'load_custom_shortcodes', 5);
 
@@ -1145,3 +1167,167 @@ function disable_sponsored_carousel_on_ajax() {
     }
 }
 add_action('init', 'disable_sponsored_carousel_on_ajax', 1);
+
+// Carregar sistema de pagamento
+require_once get_stylesheet_directory() . '/inc/custom/broker/payment-loader.php';
+
+// Personalizar mensagens de erro do login
+function custom_login_error_messages($error) {
+    global $errors;
+    
+    if (isset($errors) && is_wp_error($errors)) {
+        foreach ($errors->get_error_codes() as $code) {
+            switch ($code) {
+                case 'invalid_username':
+                case 'invalid_email':
+                case 'incorrect_password':
+                    return 'E-mail ou senha incorretos.';
+                case 'empty_username':
+                    return 'Por favor, informe seu e-mail.';
+                case 'empty_password':
+                    return 'Por favor, informe sua senha.';
+            }
+        }
+    }
+    return $error;
+}
+add_filter('login_errors', 'custom_login_error_messages');
+
+// Redirecionar após login bem-sucedido
+function custom_login_redirect($redirect_to, $request, $user) {
+    if (isset($user->roles) && is_array($user->roles)) {
+        if (in_array('administrator', $user->roles)) {
+            return admin_url();
+        } else {
+            $redirect = isset($_GET['redirect_to']) ? $_GET['redirect_to'] : home_url();
+            return $redirect;
+        }
+    }
+    return $redirect_to;
+}
+add_filter('login_redirect', 'custom_login_redirect', 10, 3);
+
+// Personalizar URL de login
+function custom_login_url($login_url, $redirect = '', $force_reauth = false) {
+    $login_page = get_page_by_path('login');
+    if ($login_page) {
+        $login_url = get_permalink($login_page->ID);
+        if (!empty($redirect)) {
+            $login_url = add_query_arg('redirect_to', urlencode($redirect), $login_url);
+        }
+        if ($force_reauth) {
+            $login_url = add_query_arg('reauth', '1', $login_url);
+        }
+    }
+    return $login_url;
+}
+add_filter('login_url', 'custom_login_url', 10, 3);
+
+// Personalizar URL de registro
+function custom_register_url($register_url) {
+    $register_page = get_page_by_path('cadastro-corretor');
+    if ($register_page) {
+        return get_permalink($register_page->ID);
+    }
+    return $register_url;
+}
+add_filter('register_url', 'custom_register_url');
+
+// Personalizar URL de recuperação de senha
+function custom_lostpassword_url($lostpassword_url, $redirect = '') {
+    $lostpassword_page = get_page_by_path('recuperar-senha');
+    if ($lostpassword_page) {
+        $url = get_permalink($lostpassword_page->ID);
+        if (!empty($redirect)) {
+            $url = add_query_arg('redirect_to', urlencode($redirect), $url);
+        }
+        return $url;
+    }
+    return $lostpassword_url;
+}
+add_filter('lostpassword_url', 'custom_lostpassword_url', 10, 2);
+
+// Adicionar classes ao formulário de login
+function custom_login_form_classes($classes) {
+    $classes[] = 'login-form';
+    $classes[] = 'needs-validation';
+    return $classes;
+}
+add_filter('login_form_classes', 'custom_login_form_classes');
+
+// Personalizar campos do formulário de login
+function custom_login_form_fields($fields) {
+    $fields['user_login'] = str_replace(
+        'type="text"',
+        'type="email" required placeholder="Seu e-mail"',
+        $fields['user_login']
+    );
+    
+    $fields['user_pass'] = str_replace(
+        'type="password"',
+        'type="password" required placeholder="Sua senha"',
+        $fields['user_pass']
+    );
+    
+    return $fields;
+}
+add_filter('login_form_fields', 'custom_login_form_fields');
+
+// Registrar tentativas de login
+function log_login_attempts($user_login) {
+    $log_file = ABSPATH . 'wp-content/login-attempts.log';
+    $ip = $_SERVER['REMOTE_ADDR'];
+    $date = current_time('mysql');
+    $log_message = sprintf("[%s] Tentativa de login para usuário '%s' do IP %s\n", $date, $user_login, $ip);
+    error_log($log_message, 3, $log_file);
+}
+add_action('wp_login_failed', 'log_login_attempts');
+
+// Limitar tentativas de login
+function limit_login_attempts($user, $username, $password) {
+    if (empty($username)) return $user;
+    
+    $ip = $_SERVER['REMOTE_ADDR'];
+    $transient_key = 'login_attempts_' . $ip;
+    $attempts = get_transient($transient_key);
+    
+    if ($attempts === false) {
+        $attempts = 0;
+    }
+    
+    if ($attempts >= 5) {
+        return new WP_Error('too_many_attempts', 
+            'Muitas tentativas de login. Por favor, tente novamente em 15 minutos.');
+    }
+    
+    if (is_wp_error($user)) {
+        $attempts++;
+        set_transient($transient_key, $attempts, 900); // 15 minutos
+    }
+    
+    return $user;
+}
+add_filter('authenticate', 'limit_login_attempts', 30, 3);
+
+// Notificar admin sobre login suspeito
+function notify_suspicious_login($user_login, $user) {
+    $ip = $_SERVER['REMOTE_ADDR'];
+    $admin_email = get_option('admin_email');
+    $site_name = get_bloginfo('name');
+    
+    $unusual_location = false; // Implementar verificação de localização aqui
+    $unusual_time = (int)current_time('G') < 6 || (int)current_time('G') > 22;
+    
+    if ($unusual_location || $unusual_time) {
+        $subject = sprintf('[%s] Login Suspeito Detectado', $site_name);
+        $message = sprintf(
+            'Um login suspeito foi detectado:\n\nUsuário: %s\nIP: %s\nData/Hora: %s\n\nVerifique se esta atividade é legítima.',
+            $user_login,
+            $ip,
+            current_time('mysql')
+        );
+        
+        wp_mail($admin_email, $subject, $message);
+    }
+}
+add_action('wp_login', 'notify_suspicious_login', 10, 2);

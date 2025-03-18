@@ -1,0 +1,380 @@
+/**
+ * Estilos para o Checkout Unificado
+ */
+
+/* Container principal */
+.multi-product-checkout {
+    max-width: 800px;
+    margin: 0 auto;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Cabeçalho */
+.checkout-header {
+    margin-bottom: 20px;
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 10px;
+}
+
+.checkout-header h3 {
+    font-size: 24px;
+    margin: 0;
+    color: #333;
+}
+
+/* Lista de produtos */
+.product-list {
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.product-list h4 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 18px;
+    color: #444;
+}
+
+.checkout-products {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.checkout-product-item {
+    border-bottom: 1px solid #eee;
+    padding: 12px 0;
+}
+
+.checkout-product-item:last-child {
+    border-bottom: none;
+}
+
+.product-title {
+    font-weight: 600;
+    font-size: 16px;
+    color: #333;
+    margin-bottom: 5px;
+}
+
+.product-price {
+    font-size: 15px;
+    color: #666;
+}
+
+.product-description {
+    font-size: 14px;
+    color: #777;
+    margin-top: 5px;
+}
+
+.checkout-total {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+    text-align: right;
+    font-size: 16px;
+}
+
+.total-label {
+    font-weight: 600;
+    margin-right: 10px;
+}
+
+.total-value {
+    font-weight: 700;
+    color: #2c3e50;
+}
+
+/* Formulário de pagamento */
+.payment-form {
+    background-color: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+
+/* Seção de cartões salvos */
+.saved-cards-section {
+    margin-bottom: 25px;
+}
+
+.saved-cards-section h4 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 18px;
+    color: #444;
+}
+
+.saved-cards-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.saved-card-option {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+
+.saved-card-option:hover {
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.card-radio-label {
+    display: flex;
+    cursor: pointer;
+    width: 100%;
+    padding: 0;
+}
+
+.card-radio-label input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+}
+
+.card-radio-label input[type="radio"]:checked + .card-info {
+    background-color: #f0f7ff;
+    border-color: #3498db;
+}
+
+.card-info {
+    display: flex;
+    width: 100%;
+    padding: 15px;
+    border: 2px solid transparent;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.card-brand {
+    margin-right: 12px;
+    display: flex;
+    align-items: center;
+}
+
+.card-brand img {
+    width: 40px;
+    height: auto;
+}
+
+.card-details {
+    flex: 1;
+}
+
+.card-number {
+    font-size: 15px;
+    margin-bottom: 4px;
+    font-weight: 600;
+    color: #333;
+}
+
+.card-expiry {
+    font-size: 13px;
+    color: #666;
+}
+
+.new-card-option .card-info {
+    justify-content: center;
+    color: #3498db;
+    font-weight: 500;
+}
+
+/* Formulário de novo cartão */
+.new-card-form {
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 15px;
+}
+
+.new-card-form h4 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 18px;
+    color: #444;
+}
+
+.mp-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.mp-input-container {
+    margin-bottom: 15px;
+}
+
+.mp-input-container label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: #555;
+    font-weight: 500;
+}
+
+.mp-input-container input,
+.mp-input-container select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 15px;
+    transition: border-color 0.2s;
+}
+
+.mp-input-container input:focus,
+.mp-input-container select:focus {
+    border-color: #3498db;
+    outline: none;
+}
+
+.mp-row {
+    display: flex;
+    gap: 15px;
+}
+
+.mp-col-6 {
+    flex: 0 0 calc(50% - 7.5px);
+}
+
+.save-card-option {
+    margin-top: 10px;
+}
+
+.save-card-option label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.save-card-option input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+/* Botão de pagamento */
+.checkout-button {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 12px 24px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 20px;
+    transition: background-color 0.2s;
+}
+
+.checkout-button:hover {
+    background-color: #2980b9;
+}
+
+.checkout-button:disabled {
+    background-color: #95a5a6;
+    cursor: not-allowed;
+}
+
+/* Termos e condições */
+.terms-container {
+    margin-top: 20px;
+}
+
+.terms-label {
+    display: flex;
+    align-items: flex-start;
+    font-size: 14px;
+    color: #666;
+}
+
+.terms-label input {
+    margin-right: 8px;
+    margin-top: 3px;
+}
+
+.terms-label a {
+    color: #3498db;
+    text-decoration: none;
+}
+
+.terms-label a:hover {
+    text-decoration: underline;
+}
+
+/* Mensagens de status */
+#payment-status {
+    margin-top: 20px;
+}
+
+.success-message,
+.error-message {
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.success-message {
+    background-color: #e8f5e9;
+    border: 1px solid #c8e6c9;
+}
+
+.error-message {
+    background-color: #ffebee;
+    border: 1px solid #ffcdd2;
+}
+
+.success-message h3,
+.error-message h3 {
+    margin-top: 0;
+    color: #2e7d32;
+}
+
+.error-message h3 {
+    color: #c62828;
+}
+
+.payment-details {
+    margin: 15px 0;
+    font-size: 14px;
+}
+
+.continue-button,
+.retry-button {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #3498db;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+}
+
+.continue-button:hover,
+.retry-button:hover {
+    background-color: #2980b9;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .saved-cards-list {
+        grid-template-columns: 1fr;
+    }
+    
+    .mp-row {
+        flex-direction: column;
+        gap: 0;
+    }
+    
+    .mp-col-6 {
+        flex: 0 0 100%;
+    }
+} 

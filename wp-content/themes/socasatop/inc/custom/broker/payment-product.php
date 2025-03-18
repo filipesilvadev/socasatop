@@ -285,4 +285,113 @@ if (!class_exists('Socasa_Products')) {
             'message' => 'Publicação do imóvel processada com sucesso!'
         ];
     }
+}
+
+/**
+ * Processa o pagamento após a confirmação
+ * 
+ * @param array $payment_data Dados do pagamento
+ * @return array Resultado do processamento
+ */
+function process_payment_confirmation($payment_data) {
+    // Verificar se os dados necessários estão presentes
+    if (empty($payment_data['payment_id']) || empty($payment_data['product_id']) || empty($payment_data['user_id'])) {
+        return array(
+            'success' => false,
+            'message' => 'Dados de pagamento incompletos.'
+        );
+    }
+    
+    // Obter informações do produto
+    $product = socasa_get_product($payment_data['product_id']);
+    if (!$product) {
+        return array(
+            'success' => false,
+            'message' => 'Produto não encontrado.'
+        );
+    }
+    
+    // Verificar se o usuário existe
+    $user = get_user_by('ID', $payment_data['user_id']);
+    if (!$user) {
+        return array(
+            'success' => false,
+            'message' => 'Usuário não encontrado.'
+        );
+    }
+    
+    // Registrar o pagamento no banco de dados
+    $payment_record = array(
+        'payment_id' => $payment_data['payment_id'],
+        'product_id' => $payment_data['product_id'],
+        'user_id' => $payment_data['user_id'],
+        'amount' => $product['price'],
+        'status' => 'completed',
+        'date_created' => current_time('mysql'),
+        'payment_method' => isset($payment_data['payment_method']) ? $payment_data['payment_method'] : 'mercadopago',
+        'transaction_data' => json_encode($payment_data)
+    );
+    
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'socasa_payments';
+    
+    // Verificar se a tabela existe, se não, criá-la
+    if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
+        $charset_collate = $wpdb->get_charset_collate();
+        $sql = "CREATE TABLE $table_name (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            payment_id varchar(255) NOT NULL,
+            product_id varchar(255) NOT NULL,
+            user_id bigint(20) NOT NULL,
+            amount decimal(10,2) NOT NULL,
+            status varchar(50) NOT NULL,
+            date_created datetime NOT NULL,
+            payment_method varchar(50) NOT NULL,
+            transaction_data text NOT NULL,
+            PRIMARY KEY  (id)
+        ) $charset_collate;";
+        
+        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+        dbDelta($sql);
+    }
+    
+    // Inserir o registro de pagamento
+    $wpdb->insert($table_name, $payment_record);
+    
+    // Executar a função de callback do produto, se existir
+    if (isset($product['callback']) && function_exists($product['callback'])) {
+        $callback_result = call_user_func($product['callback'], $payment_data['user_id'], $payment_data);
+        
+        if ($callback_result === false) {
+            return array(
+                'success' => true,
+                'message' => 'Pagamento processado, mas houve um erro ao ativar o produto.',
+                'payment_id' => $payment_data['payment_id']
+            );
+        }
+    }
+    
+    // Enviar e-mail de confirmação para o usuário
+    $subject = 'Confirmação de Pagamento - ' . $product['name'];
+    $message = "Olá {$user->display_name},\n\n";
+    $message .= "Seu pagamento para {$product['name']} foi confirmado com sucesso.\n";
+    $message .= "ID do Pagamento: {$payment_data['payment_id']}\n";
+    $message .= "Valor: R$ " . number_format($product['price'], 2, ',', '.') . "\n\n";
+    $message .= "Obrigado por utilizar nossos serviços!\n\n";
+    $message .= "Atenciosamente,\n";
+    $message .= get_bloginfo('name');
+    
+    wp_mail($user->user_email, $subject, $message);
+    
+    // Registrar o evento no log
+    if (function_exists('write_log')) {
+        write_log("Pagamento processado: ID {$payment_data['payment_id']} para o produto {$product['name']} pelo usuário {$user->user_login}");
+    }
+    
+    return array(
+        'success' => true,
+        'message' => 'Pagamento processado com sucesso.',
+        'payment_id' => $payment_data['payment_id'],
+        'product' => $product['name']
+    );
 } 
