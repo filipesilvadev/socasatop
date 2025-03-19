@@ -237,7 +237,7 @@ function render_highlight_payment_form($immobile_id) {
     );
     
     // Carregar a classe Mercado Pago
-    require_once(get_template_directory() . '/inc/custom/immobile/mercadopago.php');
+    require_once(ABSPATH . 'wp-content/themes/socasatop/inc/custom/immobile/mercadopago.php');
     
     // Obter a configuração do Mercado Pago
     if (function_exists('get_mercadopago_config')) {
