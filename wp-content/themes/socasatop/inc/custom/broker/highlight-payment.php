@@ -1256,4 +1256,53 @@ function check_property_highlight() {
     ));
 }
 add_action('wp_ajax_check_property_highlight', 'check_property_highlight');
-add_action('wp_ajax_nopriv_check_property_highlight', 'check_property_highlight'); 
+add_action('wp_ajax_nopriv_check_property_highlight', 'check_property_highlight');
+
+/**
+ * Função AJAX para pausar/retomar o destaque de um imóvel
+ */
+function toggle_highlight_pause() {
+    check_ajax_referer('highlight_action_nonce', 'nonce');
+    
+    // Verificar se o usuário está logado
+    if (!is_user_logged_in()) {
+        wp_send_json_error(array('message' => 'Você precisa estar logado para realizar esta ação.'));
+        return;
+    }
+    
+    // Verificar se o ID do imóvel foi enviado
+    if (!isset($_POST['immobile_id']) || empty($_POST['immobile_id'])) {
+        wp_send_json_error(array('message' => 'ID do imóvel não fornecido.'));
+        return;
+    }
+    
+    $immobile_id = intval($_POST['immobile_id']);
+    
+    // Verificar se o usuário é o corretor deste imóvel
+    $user_id = get_current_user_id();
+    $broker_id = get_post_meta($immobile_id, 'broker', true);
+    
+    if ($broker_id != $user_id && !current_user_can('administrator')) {
+        wp_send_json_error(array('message' => 'Você não tem permissão para modificar este imóvel.'));
+        return;
+    }
+    
+    // Obter o estado atual da pausa
+    $highlight_paused = get_post_meta($immobile_id, 'highlight_paused', true) === 'yes';
+    
+    // Inverter o estado da pausa
+    $new_state = $highlight_paused ? 'no' : 'yes';
+    
+    // Atualizar o meta
+    update_post_meta($immobile_id, 'highlight_paused', $new_state);
+    
+    // Enviar resposta
+    $action_text = $highlight_paused ? 'reativado' : 'pausado';
+    wp_send_json_success(array(
+        'message' => 'Destaque ' . $action_text . ' com sucesso!',
+        'new_state' => $new_state,
+        'paused' => $new_state === 'yes',
+        'button_text' => $new_state === 'yes' ? 'Retomar Destaque' : 'Pausar Destaque'
+    ));
+}
+add_action('wp_ajax_toggle_highlight_pause', 'toggle_highlight_pause'); 

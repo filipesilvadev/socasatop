@@ -35,11 +35,6 @@ function create_immobile_flow() {
           'price' => 99,
           'description' => 'Tenha seu imóvel destacado no topo das buscas.'
       ],
-      'assessoria' => [
-          'name' => 'Assessoria',
-          'price' => 20,
-          'description' => 'Conte com um assessor especialista'
-      ],
       'colab' => [
           'name' => 'Colab',
           'price' => 200,

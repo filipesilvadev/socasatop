@@ -249,12 +249,23 @@ function publication_payment_shortcode($atts) {
     
     return socasa_payment_shortcode(array(
         'entity_id' => $atts['immobile_id'],
-        'product_id' => 'basic_publication',
+        'product_id' => 'publication',
         'success_url' => '/corretores/meus-imoveis/',
-        'show_terms' => 'false'
+        'show_terms' => 'true'
     ));
 }
 add_shortcode('publication_payment', 'publication_payment_shortcode');
+
+/**
+ * Shortcode para o link de logout seguro com nonce
+ * 
+ * @return string HTML do link de logout
+ */
+function secure_logout_shortcode() {
+    $logout_url = wp_logout_url(home_url());
+    return '<a href="' . esc_url($logout_url) . '" class="logout-button">Sair</a>';
+}
+add_shortcode('secure_logout', 'secure_logout_shortcode');
 
 /**
  * Shortcode para exibir configurações de pagamento
