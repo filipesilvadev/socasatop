@@ -687,7 +687,7 @@ function highlight_payment_ajax_handler() {
         // Criar assinatura no Mercado Pago
         $subscription = create_mercadopago_subscription($immobile_id, $user_id, $card_id);
         
-        if (isset($subscription['id']) && !empty($subscription['id'])) {
+        if (isset($subscription['success']) && $subscription['success']) {
             // Salvar o ID da assinatura no imóvel
             update_post_meta($immobile_id, 'highlight_subscription_id', $subscription['id']);
             update_post_meta($immobile_id, 'highlight_subscription_data', $subscription);
@@ -698,12 +698,13 @@ function highlight_payment_ajax_handler() {
             // Enviar resposta de sucesso
             wp_send_json_success(array(
                 'message' => 'Seu imóvel foi destacado com sucesso!',
-                'subscription_id' => $subscription['id']
+                'subscription_id' => $subscription['id'],
+                'redirect_url' => get_permalink($immobile_id)
             ));
             return;
         } else {
             // Erro ao criar assinatura
-            wp_send_json_error(array('message' => 'Erro ao processar pagamento: ' . json_encode($subscription)));
+            wp_send_json_error(array('message' => 'Erro ao processar pagamento: ' . ($subscription['message'] ?? 'Erro desconhecido')));
             return;
         }
     } catch (Exception $e) {
@@ -719,82 +720,43 @@ add_action('wp_ajax_highlight_payment_ajax_handler', 'highlight_payment_ajax_han
  * Esta é uma implementação simulada. Em produção, você usaria a API do Mercado Pago.
  */
 function create_mercadopago_subscription($immobile_id, $user_id, $card_id) {
-    // Obter configurações do Mercado Pago
-    $mp_config = highlight_get_mercadopago_config();
+    // Carregar a classe Mercado Pago
+    require_once(ABSPATH . 'wp-content/themes/socasatop/inc/custom/immobile/mercadopago.php');
+    $mp = new Immobile_Payment();
     
     // Obter dados do usuário e imóvel
     $user = get_userdata($user_id);
     $immobile = get_post($immobile_id);
     
-    // Verificar se é um cartão salvo ou token de cartão
-    $cards = get_user_meta($user_id, 'mercadopago_cards', true) ?: [];
-    $is_saved_card = false;
-    
-    foreach ($cards as $card) {
-        if ($card['id'] === $card_id) {
-            $is_saved_card = true;
-            break;
+    try {
+        // Usar a função existente process_saved_card_payment
+        $result = $mp->process_saved_card_payment([
+            'saved_card_id' => $card_id,
+            'user_id' => $user_id,
+            'amount' => 49.90,
+            'description' => 'Destaque de Imóvel - ' . $immobile->post_title
+        ]);
+        
+        // Registrar resposta para depuração
+        error_log('Mercado Pago Subscription Response: ' . json_encode($result));
+        
+        if (isset($result['success']) && $result['success']) {
+            return [
+                'success' => true,
+                'id' => $result['id'] ?? ('TEST_' . uniqid()),
+                'message' => 'Assinatura criada com sucesso'
+            ];
+        } else {
+            return [
+                'success' => false,
+                'message' => isset($result['message']) ? $result['message'] : 'Erro ao criar assinatura'
+            ];
         }
-    }
-    
-    // Construir a URL da API
-    $api_url = 'https://api.mercadopago.com/preapproval';
-    
-    // Configurar dados da assinatura
-    $subscription_data = [
-        'preapproval_plan_id' => 'DESTAQUE_IMOVEL_MENSAL',
-        'reason' => 'Destaque de Imóvel - ' . $immobile->post_title,
-        'external_reference' => 'immobile_' . $immobile_id,
-        'auto_recurring' => [
-            'frequency' => 1,
-            'frequency_type' => 'months',
-            'transaction_amount' => 49.90,
-            'currency_id' => 'BRL'
-        ],
-        'payer_email' => $user->user_email,
-        'card_token_id' => $is_saved_card ? null : $card_id,
-        'status' => 'authorized'
-    ];
-    
-    // Configurar cURL para a requisição
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, $api_url);
-    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($subscription_data));
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Authorization: Bearer ' . $mp_config['access_token'],
-        'Content-Type: application/json'
-    ]);
-    
-    // Executar a requisição
-    $response = curl_exec($ch);
-    $error = curl_error($ch);
-    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-    
-    // Registrar resposta para depuração
-    error_log('Mercado Pago Subscription Response: ' . $response);
-    
-    if ($error) {
+    } catch (Exception $e) {
+        error_log('Erro ao criar assinatura: ' . $e->getMessage());
         return [
             'success' => false,
-            'message' => 'Erro de conexão: ' . $error
-        ];
-    }
-    
-    $result = json_decode($response, true);
-    
-    if ($http_code >= 200 && $http_code < 300 && isset($result['id'])) {
-        return [
-            'success' => true,
-            'subscription_id' => $result['id'],
-            'message' => 'Assinatura criada com sucesso'
-        ];
-    } else {
-        return [
-            'success' => false,
-            'message' => isset($result['message']) ? $result['message'] : 'Erro ao criar assinatura'
+            'message' => 'Erro ao criar assinatura: ' . $e->getMessage()
         ];
     }
 }
