@@ -343,14 +343,25 @@
         }
       });
       
-      // Manipulador para pausar destaque
-      $('.pause-highlight-button').on('click', function(e) {
+      // Adicionar handler para o botão de pausar destaque
+      $(document).on('click', '.pause-highlight-button', function(e) {
         e.preventDefault();
         const propertyId = $(this).data('id');
-        const $button = $(this);
-        
-        if (confirm('Tem certeza que deseja pausar o destaque deste imóvel? Durante a pausa, seu imóvel não aparecerá em destaque nas buscas.')) {
-          pauseHighlight(propertyId, $button);
+        if (confirm('Tem certeza que deseja pausar o destaque deste imóvel?')) {
+          pauseHighlight(propertyId, $(this));
+        }
+      });
+      
+      // Adicionar handler para o botão de reativar destaque
+      $(document).on('click', '.highlight-button', function(e) {
+        // Verificar se é um link de reativação (contém o parâmetro immobile_id na URL)
+        const url = $(this).attr('href');
+        if (url && url.includes('immobile_id=')) {
+          e.preventDefault();
+          const propertyId = url.split('immobile_id=')[1].split('&')[0];
+          if (confirm('Tem certeza que deseja reativar o destaque deste imóvel?')) {
+            reactivateHighlight(propertyId, $(this));
+          }
         }
       });
       
@@ -400,19 +411,25 @@
           url: site.ajax_url,
           type: 'POST',
           data: {
-            action: 'pause_immobile_highlight',
-            nonce: site.broker_dashboard_nonce,
+            action: 'toggle_highlight_pause',
+            nonce: site.broker_dashboard_nonce || site.nonce,
             property_id: propertyId
           },
           beforeSend: function() {
             // Mostrar indicador de carregamento
             $button.html('<i class="fas fa-spinner fa-spin"></i> <span class="button-label">Processando...</span>');
             $button.prop('disabled', true);
+            console.log('Enviando requisição para pausar destaque do imóvel ID:', propertyId);
           },
           success: function(response) {
+            console.log('Resposta recebida para pausar destaque:', response);
+            
             if (response.success) {
               // Atualizar a interface
               const $propertyItem = $(`div[data-property-id="${propertyId}"]`);
+              
+              // Adicionar classe 'paused' ao item
+              $propertyItem.addClass('paused');
               
               // Remover a tag de destaque
               $propertyItem.find('.sponsored-tag').fadeOut(300, function() {
@@ -432,18 +449,80 @@
               showNotification('Destaque pausado com sucesso.', 'success');
             } else {
               // Mostrar mensagem de erro
-              showNotification(`Erro ao pausar destaque: ${response.data.message || 'Erro desconhecido'}`, 'error');
+              showNotification(`Erro ao pausar destaque: ${response.data && response.data.message ? response.data.message : 'Erro desconhecido'}`, 'error');
               
               // Restaurar o botão
               $button.html('<i class="fas fa-pause"></i> <span class="button-label">Pausar</span>');
               $button.prop('disabled', false);
             }
           },
-          error: function() {
-            showNotification('Erro ao comunicar com o servidor. Tente novamente.', 'error');
+          error: function(xhr, status, error) {
+            console.error('Erro na requisição AJAX:', xhr.responseText, status, error);
+            // Mostrar mensagem de erro
+            showNotification('Erro ao pausar destaque. Tente novamente.', 'error');
             
             // Restaurar o botão
             $button.html('<i class="fas fa-pause"></i> <span class="button-label">Pausar</span>');
+            $button.prop('disabled', false);
+          }
+        });
+      }
+      
+      // Função para reativar destaque
+      function reactivateHighlight(propertyId, $button) {
+        // Mostrar loader no botão
+        const originalHtml = $button.html();
+        $button.html('<i class="fas fa-spinner fa-spin"></i>');
+        $button.prop('disabled', true);
+        
+        $.ajax({
+          url: site.ajax_url,
+          type: 'POST',
+          data: {
+            action: 'reactivate_immobile_highlight',
+            nonce: site.nonce,
+            property_id: propertyId
+          },
+          success: function(response) {
+            if (response.success) {
+              // Atualizar a interface
+              const $propertyItem = $(`div[data-property-id="${propertyId}"]`);
+              
+              // Remover classe 'paused' do item
+              $propertyItem.removeClass('paused');
+              
+              // Adicionar tag de destaque
+              if ($propertyItem.find('.sponsored-tag').length === 0) {
+                $propertyItem.find('.property-features').prepend('<span class="sponsored-tag">Destaque</span>');
+              }
+              
+              // Substituir o botão de reativar por pausar
+              const $newButton = $('<button></button>')
+                .addClass('action-button pause-highlight-button')
+                .attr('data-id', propertyId)
+                .attr('title', 'Pausar Destaque')
+                .html('<i class="fas fa-pause"></i> <span class="button-label">Pausar</span>');
+              
+              $button.replaceWith($newButton);
+              
+              // Mostrar mensagem de sucesso
+              showNotification('Destaque reativado com sucesso.', 'success');
+            } else {
+              // Mostrar mensagem de erro
+              showNotification(`Erro ao reativar destaque: ${response.data && response.data.message ? response.data.message : 'Erro desconhecido'}`, 'error');
+              
+              // Restaurar o botão
+              $button.html(originalHtml);
+              $button.prop('disabled', false);
+            }
+          },
+          error: function(xhr, status, error) {
+            console.error('Erro na requisição AJAX:', xhr.responseText, status, error);
+            // Mostrar mensagem de erro
+            showNotification('Erro ao reativar destaque. Tente novamente.', 'error');
+            
+            // Restaurar o botão
+            $button.html(originalHtml);
             $button.prop('disabled', false);
           }
         });
