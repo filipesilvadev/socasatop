@@ -314,46 +314,194 @@
         return;
       }
       
-      // Selecionar todos os imóveis
-      jQuery('#select-all-properties').on('change', function() {
-        const isChecked = jQuery(this).prop('checked');
-        jQuery('.property-checkbox').prop('checked', isChecked);
+      const $ = jQuery;
+      
+      // Manipulador para seleção em massa
+      $('#select-all-properties').on('change', function() {
+        $('.property-checkbox').prop('checked', $(this).is(':checked'));
+        updateBulkActions();
+      });
+      
+      // Manipulador para checkboxes individuais
+      $('.property-checkbox').on('change', function() {
+        updateBulkActions();
+      });
+      
+      // Atualizar visibilidade das ações em massa
+      function updateBulkActions() {
+        const hasChecked = $('.property-checkbox:checked').length > 0;
+        $('.bulk-actions').toggleClass('visible', hasChecked);
+      }
+      
+      // Manipulador para exclusão de imóvel
+      $('.delete-button').on('click', function(e) {
+        e.preventDefault();
+        const propertyId = $(this).data('id');
         
-        // Mostrar ou ocultar ações em massa
-        if (isChecked && jQuery('.property-checkbox:checked').length > 0) {
-          jQuery('.bulk-actions').show();
-        } else {
-          jQuery('.bulk-actions').hide();
+        if (confirm('Tem certeza que deseja excluir este imóvel? Esta ação não pode ser desfeita.')) {
+          deleteProperty(propertyId);
         }
       });
       
-      // Selecionar imóvel individual
-      jQuery(document).on('change', '.property-checkbox', function() {
-        const anyChecked = jQuery('.property-checkbox:checked').length > 0;
-        jQuery('.bulk-actions').toggle(anyChecked);
+      // Manipulador para pausar destaque
+      $('.pause-highlight-button').on('click', function(e) {
+        e.preventDefault();
+        const propertyId = $(this).data('id');
+        const $button = $(this);
         
-        // Atualizar checkbox "selecionar todos"
-        const allChecked = jQuery('.property-checkbox:checked').length === jQuery('.property-checkbox').length;
-        jQuery('#select-all-properties').prop('checked', allChecked);
+        if (confirm('Tem certeza que deseja pausar o destaque deste imóvel? Durante a pausa, seu imóvel não aparecerá em destaque nas buscas.')) {
+          pauseHighlight(propertyId, $button);
+        }
       });
       
-      // Exclusão em massa
-      jQuery('#bulk-delete-btn').on('click', function() {
-        const selectedIds = [];
-        jQuery('.property-checkbox:checked').each(function() {
-          selectedIds.push(jQuery(this).data('id'));
+      // Função para excluir imóvel
+      function deleteProperty(propertyId) {
+        $.ajax({
+          url: site.ajax_url,
+          type: 'POST',
+          data: {
+            action: 'delete_property',
+            nonce: site.broker_dashboard_nonce,
+            property_id: propertyId
+          },
+          beforeSend: function() {
+            // Mostrar indicador de carregamento
+            $(`button[data-id="${propertyId}"]`).html('<i class="fas fa-spinner fa-spin"></i>');
+          },
+          success: function(response) {
+            if (response.success) {
+              // Remover o elemento da lista
+              $(`div[data-property-id="${propertyId}"]`).fadeOut(300, function() {
+                $(this).remove();
+              });
+              
+              // Mostrar mensagem de sucesso
+              showNotification('Imóvel excluído com sucesso.', 'success');
+            } else {
+              // Mostrar mensagem de erro
+              showNotification(`Erro ao excluir imóvel: ${response.data.message || 'Erro desconhecido'}`, 'error');
+              
+              // Restaurar o botão
+              $(`button[data-id="${propertyId}"]`).html('<i class="fas fa-trash"></i>');
+            }
+          },
+          error: function() {
+            showNotification('Erro ao comunicar com o servidor. Tente novamente.', 'error');
+            
+            // Restaurar o botão
+            $(`button[data-id="${propertyId}"]`).html('<i class="fas fa-trash"></i>');
+          }
         });
+      }
+      
+      // Função para pausar destaque
+      function pauseHighlight(propertyId, $button) {
+        $.ajax({
+          url: site.ajax_url,
+          type: 'POST',
+          data: {
+            action: 'pause_immobile_highlight',
+            nonce: site.broker_dashboard_nonce,
+            property_id: propertyId
+          },
+          beforeSend: function() {
+            // Mostrar indicador de carregamento
+            $button.html('<i class="fas fa-spinner fa-spin"></i> <span class="button-label">Processando...</span>');
+            $button.prop('disabled', true);
+          },
+          success: function(response) {
+            if (response.success) {
+              // Atualizar a interface
+              const $propertyItem = $(`div[data-property-id="${propertyId}"]`);
+              
+              // Remover a tag de destaque
+              $propertyItem.find('.sponsored-tag').fadeOut(300, function() {
+                $(this).remove();
+              });
+              
+              // Substituir o botão de pausar por reativar
+              const $newButton = $('<a></a>')
+                .attr('href', `/corretores/destacar-imovel/?immobile_id=${propertyId}`)
+                .addClass('action-button highlight-button')
+                .attr('title', 'Reativar Destaque')
+                .html('<i class="fas fa-star"></i> <span class="button-label">Reativar</span>');
+              
+              $button.replaceWith($newButton);
+              
+              // Mostrar mensagem de sucesso
+              showNotification('Destaque pausado com sucesso.', 'success');
+            } else {
+              // Mostrar mensagem de erro
+              showNotification(`Erro ao pausar destaque: ${response.data.message || 'Erro desconhecido'}`, 'error');
+              
+              // Restaurar o botão
+              $button.html('<i class="fas fa-pause"></i> <span class="button-label">Pausar</span>');
+              $button.prop('disabled', false);
+            }
+          },
+          error: function() {
+            showNotification('Erro ao comunicar com o servidor. Tente novamente.', 'error');
+            
+            // Restaurar o botão
+            $button.html('<i class="fas fa-pause"></i> <span class="button-label">Pausar</span>');
+            $button.prop('disabled', false);
+          }
+        });
+      }
+      
+      // Função para exibir notificações
+      function showNotification(message, type) {
+        // Verificar se já existe uma div de notificação
+        let $notification = $('.broker-notification');
         
-        if (selectedIds.length === 0) {
-          alert('Selecione pelo menos um imóvel para excluir.');
-          return;
+        if ($notification.length === 0) {
+          // Criar uma nova div de notificação
+          $notification = $('<div></div>')
+            .addClass('broker-notification')
+            .appendTo('body');
         }
         
-        if (confirm(`Tem certeza que deseja excluir ${selectedIds.length} imóvel(is)?`)) {
-          // Implementar lógica de exclusão em massa
-          console.log('🗑️ Excluir imóveis:', selectedIds);
-        }
-      });
+        // Definir a classe e o conteúdo
+        $notification
+          .removeClass('success error')
+          .addClass(type)
+          .html(message)
+          .fadeIn(300);
+        
+        // Esconder a notificação após 3 segundos
+        setTimeout(function() {
+          $notification.fadeOut(300);
+        }, 3000);
+      }
+      
+      // Adicionar estilos para a notificação
+      if (!$('#broker-notification-styles').length) {
+        $('head').append(`
+          <style id="broker-notification-styles">
+            .broker-notification {
+              position: fixed;
+              top: 20px;
+              right: 20px;
+              padding: 15px 20px;
+              border-radius: 4px;
+              color: white;
+              font-weight: 500;
+              z-index: 9999;
+              display: none;
+              box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+              max-width: 300px;
+            }
+            
+            .broker-notification.success {
+              background-color: #4CAF50;
+            }
+            
+            .broker-notification.error {
+              background-color: #F44336;
+            }
+          </style>
+        `);
+      }
     };
     
     // Força a renderização inicial do gráfico, independentemente das condições

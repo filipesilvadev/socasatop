@@ -258,120 +258,62 @@ function render_highlight_payment_form($immobile_id) {
         'price' => $monthly_price
     ));
     
+    // Obter a thumbnail do imóvel
+    $thumbnail = get_the_post_thumbnail_url($immobile_id, 'medium');
+    
     ob_start();
     ?>
     <div class="highlight-payment-container">
         <h2>Destaque seu Imóvel</h2>
-        <div class="payment-wrapper" style="display: flex; flex-wrap: wrap; gap: 20px;">
-            <?php
-            // Adicionar imagem do imóvel selecionado
-            $thumbnail_id = get_post_thumbnail_id($immobile_id);
-            $thumbnail_url = wp_get_attachment_image_url($thumbnail_id, 'medium');
-            if (!$thumbnail_url) {
-                $thumbnail_url = get_template_directory_uri() . '/inc/custom/broker/assets/images/placeholder-property.jpg';
-            }
-            $immobile_title = get_the_title($immobile_id);
-            ?>
-            
-            <div class="property-image-preview" style="flex: 0 0 300px;">
-                <h3>Imóvel Selecionado</h3>
-                <div class="property-image">
-                    <img src="<?php echo esc_url($thumbnail_url); ?>" alt="<?php echo esc_attr($immobile_title); ?>" style="max-width: 100%; height: auto; border-radius: 8px; border: 1px solid #ddd;">
-                </div>
-                <div class="property-title" style="margin-top: 10px; font-weight: bold;">
-                    <?php echo esc_html($immobile_title); ?>
-                </div>
+        
+        <div class="property-preview">
+            <div class="property-image">
+                <?php if ($thumbnail) : ?>
+                    <img src="<?php echo esc_url($thumbnail); ?>" alt="<?php echo esc_attr(get_the_title($immobile_id)); ?>">
+                <?php else : ?>
+                    <div class="no-image">Sem imagem disponível</div>
+                <?php endif; ?>
             </div>
-            
-            <div class="payment-info" style="flex: 1 1 400px;">
-                <p>Ao destacar seu imóvel, ele aparecerá no topo das buscas e terá destaque especial no site, aumentando sua visibilidade e chances de negócio.</p>
+            <div class="property-info">
+                <h3><?php echo get_the_title($immobile_id); ?></h3>
+                <?php 
+                // Obter meta dados do imóvel
+                $price = get_post_meta($immobile_id, 'price', true);
+                $area = get_post_meta($immobile_id, 'area', true);
+                $bedrooms = get_post_meta($immobile_id, 'bedrooms', true);
+                $bathrooms = get_post_meta($immobile_id, 'bathrooms', true);
                 
-                <div class="price-info">
-                    <h3>Plano de Destaque</h3>
-                    <div class="price">R$ <?php echo number_format($monthly_price, 2, ',', '.'); ?>/mês</div>
-                    <ul class="benefits">
-                        <li>Posicionamento no topo das buscas</li>
-                        <li>Etiqueta de "Destaque" nas listagens</li>
-                        <li>Maior visibilidade para potenciais clientes</li>
-                        <li>Assinatura mensal, cancele quando quiser</li>
-                    </ul>
-                </div>
+                if ($price) {
+                    echo '<p class="property-price">R$ ' . number_format($price, 2, ',', '.') . '</p>';
+                }
+                
+                echo '<div class="property-details">';
+                if ($area) echo '<span><i class="fas fa-ruler-combined"></i> ' . $area . ' m²</span>';
+                if ($bedrooms) echo '<span><i class="fas fa-bed"></i> ' . $bedrooms . ' quarto(s)</span>';
+                if ($bathrooms) echo '<span><i class="fas fa-bath"></i> ' . $bathrooms . ' banheiro(s)</span>';
+                echo '</div>';
+                ?>
             </div>
         </div>
         
-        <div class="payment-form">
-            <h3>Selecione a forma de pagamento</h3>
-            
-            <?php if (!empty($cards)) : ?>
-                <div class="section-title">Seus cartões salvos</div>
-                <div class="cards-list">
-                    <?php foreach ($cards as $card) : ?>
-                        <div class="card-item">
-                            <label class="card-select">
-                                <input type="radio" name="payment_method" value="<?php echo $card['id']; ?>" <?php echo $card['id'] === $default_card_id ? 'checked' : ''; ?>>
-                                <div class="card-info">
-                                    <div class="card-type">
-                                        <img src="<?php echo get_card_brand_logo($card['brand']); ?>" alt="<?php echo $card['brand']; ?>">
-                                    </div>
-                                    <div class="card-details">
-                                        <div class="card-number">•••• •••• •••• <?php echo $card['last_four']; ?></div>
-                                        <div class="card-expiry">Expira: <?php echo $card['expiry_month']; ?>/<?php echo $card['expiry_year']; ?></div>
-                                    </div>
-                                </div>
-                            </label>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-                
-                <div class="separator">
-                    <span>ou</span>
-                </div>
-            <?php endif; ?>
-            
-            <div class="section-title">Adicionar novo cartão</div>
-            <div id="card-form-container">
-                <form id="card-form">
-                    <div class="form-row">
-                        <label for="cardholderName">Nome no Cartão</label>
-                        <input type="text" id="cardholderName" name="cardholderName" required>
-                    </div>
-                    
-                    <div class="form-row" id="cardNumberContainer"></div>
-                    
-                    <div class="form-row form-row-double">
-                        <div class="form-col">
-                            <div id="expirationDateContainer"></div>
-                        </div>
-                        <div class="form-col">
-                            <div id="securityCodeContainer"></div>
-                        </div>
-                    </div>
-                    
-                    <div class="form-row">
-                        <label for="identificationNumber">CPF</label>
-                        <input type="text" id="identificationNumber" name="identificationNumber" required>
-                    </div>
-                </form>
-            </div>
-            
-            <div id="payment-result" style="display: none;">
-                <div class="success-message" style="display: none;">
-                    Pagamento processado com sucesso!
-                </div>
-                <div class="error-message" style="display: none;"></div>
-            </div>
-            
-            <div class="terms-conditions">
-                <label>
-                    <input type="checkbox" id="accept-terms" required>
-                    Eu aceito os <a href="/termos-e-condicoes/" target="_blank">Termos e Condições</a> e autorizo a cobrança mensal de R$ <?php echo number_format($monthly_price, 2, ',', '.'); ?> em meu cartão de crédito.
-                </label>
-            </div>
-            
-            <div class="payment-actions">
-                <button id="process-payment" class="primary-button">Destacar Imóvel</button>
-                <a href="<?php echo get_permalink($immobile_id); ?>" class="secondary-button">Cancelar</a>
-            </div>
+        <div class="highlight-benefits">
+            <h3>Benefícios do Destaque</h3>
+            <ul>
+                <li>Maior visibilidade na plataforma</li>
+                <li>Aparecimento prioritário nas buscas</li>
+                <li>Selo de "Destaque" no seu anúncio</li>
+                <li>Inclusão no carrossel de imóveis em destaque</li>
+            </ul>
+        </div>
+        
+        <div class="highlight-pricing">
+            <h3>Preço do destaque:</h3>
+            <p class="price">R$ <?php echo number_format($monthly_price, 2, ',', '.'); ?></p>
+            <p class="period">Duração: 30 dias</p>
+        </div>
+        
+        <div class="highlight-action">
+            <a href="#" class="button highlight-button" data-action="highlight-property">Destacar Imóvel Agora</a>
         </div>
     </div>
     
@@ -380,253 +322,134 @@ function render_highlight_payment_form($immobile_id) {
             max-width: 800px;
             margin: 0 auto;
             padding: 20px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        h2 {
-            font-size: 28px;
-            margin-bottom: 20px;
-            color: #333;
-        }
-        
-        h3 {
-            font-size: 20px;
-            margin-bottom: 16px;
-            color: #444;
-        }
-        
-        .payment-info, .payment-form {
             background-color: #fff;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            padding: 24px;
-            margin-bottom: 24px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         
-        .price-info {
-            background-color: #f5f9ff;
+        .highlight-payment-container h2 {
+            color: #333;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .property-preview {
+            display: flex;
+            margin-bottom: 20px;
+            background-color: #f9f9f9;
             border-radius: 8px;
-            padding: 20px;
-            margin-top: 20px;
+            overflow: hidden;
         }
         
-        .price {
-            font-size: 28px;
-            font-weight: 700;
-            color: #1e56b3;
-            margin-bottom: 12px;
+        .property-image {
+            width: 40%;
+            height: 200px;
+            overflow: hidden;
         }
         
-        .benefits {
-            list-style-type: none;
-            padding: 0;
-            margin: 0;
+        .property-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
         
-        .benefits li {
-            padding: 6px 0;
-            position: relative;
-            padding-left: 24px;
+        .property-image .no-image {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #eee;
+            color: #999;
         }
         
-        .benefits li:before {
-            content: "✓";
-            color: #4CAF50;
-            position: absolute;
-            left: 0;
-            top: 6px;
-            font-weight: bold;
+        .property-info {
+            width: 60%;
+            padding: 15px;
         }
         
-        .section-title {
-            font-size: 18px;
-            font-weight: 500;
-            margin-bottom: 12px;
+        .property-info h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
             color: #333;
         }
         
-        .cards-list {
-            margin-bottom: 20px;
-        }
-        
-        .card-item {
+        .property-price {
+            font-size: 18px;
+            font-weight: bold;
+            color: #4CAF50;
             margin-bottom: 10px;
         }
         
-        .card-select {
+        .property-details {
             display: flex;
-            align-items: center;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s ease;
+            flex-wrap: wrap;
+            gap: 15px;
         }
         
-        .card-select:hover {
-            border-color: #1e56b3;
-        }
-        
-        .card-select input[type="radio"] {
-            margin-right: 12px;
-        }
-        
-        .card-info {
-            display: flex;
-            align-items: center;
-            flex: 1;
-        }
-        
-        .card-type {
-            margin-right: 16px;
-        }
-        
-        .card-type img {
-            width: 40px;
-            height: auto;
-        }
-        
-        .card-number {
-            font-weight: 600;
-            margin-bottom: 4px;
-        }
-        
-        .card-expiry {
+        .property-details span {
+            font-size: 14px;
             color: #666;
-            font-size: 14px;
         }
         
-        .separator {
-            display: flex;
-            align-items: center;
-            text-align: center;
-            margin: 20px 0;
-        }
-        
-        .separator::before, .separator::after {
-            content: '';
-            flex: 1;
-            border-bottom: 1px solid #ddd;
-        }
-        
-        .separator span {
-            padding: 0 10px;
-            color: #777;
-            font-size: 14px;
-        }
-        
-        #card-form {
-            margin-top: 16px;
-        }
-        
-        .form-row {
-            margin-bottom: 16px;
-        }
-        
-        .form-row-double {
-            display: flex;
-            gap: 16px;
-        }
-        
-        .form-col {
-            flex: 1;
-        }
-        
-        label {
-            display: block;
-            margin-bottom: 6px;
-            font-weight: 500;
-            color: #444;
-        }
-        
-        input[type="text"] {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 16px;
-        }
-        
-        .terms-conditions {
-            margin: 20px 0;
-        }
-        
-        .terms-conditions label {
-            display: flex;
-            align-items: flex-start;
-            font-weight: normal;
-        }
-        
-        .terms-conditions input[type="checkbox"] {
-            margin-right: 10px;
-            margin-top: 3px;
-        }
-        
-        .terms-conditions a {
+        .property-details i {
+            margin-right: 5px;
             color: #1e56b3;
-            text-decoration: none;
         }
         
-        .terms-conditions a:hover {
-            text-decoration: underline;
+        .highlight-benefits {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 6px;
         }
         
-        .payment-actions {
-            display: flex;
-            gap: 12px;
-            margin-top: 20px;
-        }
-        
-        button {
-            padding: 10px 18px;
-            border-radius: 4px;
-            font-size: 16px;
-            cursor: pointer;
-            border: none;
-            transition: all 0.2s ease;
-        }
-        
-        .primary-button {
-            background-color: #1e56b3;
-            color: white;
-            font-weight: 500;
-        }
-        
-        .primary-button:hover {
-            background-color: #174291;
-        }
-        
-        .secondary-button {
-            background-color: #f0f0f0;
+        .highlight-benefits h3 {
+            margin-top: 0;
             color: #333;
+        }
+        
+        .highlight-benefits ul {
+            padding-left: 20px;
+        }
+        
+        .highlight-benefits li {
+            margin-bottom: 8px;
+        }
+        
+        .highlight-pricing {
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .highlight-pricing .price {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        
+        .highlight-pricing .period {
+            color: #666;
+        }
+        
+        .highlight-action {
+            text-align: center;
+            margin: 25px 0 10px;
+        }
+        
+        .highlight-button {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 4px;
             text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 10px 18px;
-            border-radius: 4px;
-            font-size: 16px;
+            font-weight: bold;
+            transition: background-color 0.3s;
         }
         
-        .secondary-button:hover {
-            background-color: #e0e0e0;
-            text-decoration: none;
-        }
-        
-        .success-message {
-            background-color: #dff2bf;
-            color: #4f8a10;
-            padding: 12px;
-            border-radius: 4px;
-            margin-bottom: 16px;
-        }
-        
-        .error-message {
-            background-color: #ffdddd;
-            color: #d8000c;
-            padding: 12px;
-            border-radius: 4px;
-            margin-bottom: 16px;
+        .highlight-button:hover {
+            background-color: #45a049;
         }
     </style>
     <?php

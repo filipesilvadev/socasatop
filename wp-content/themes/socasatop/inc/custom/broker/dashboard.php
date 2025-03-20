@@ -252,16 +252,16 @@ function broker_dashboard_content($atts) {
                             <?php if ($is_sponsored) : ?>
                                 <?php if ($highlight_paused) : ?>
                                     <a href="/corretores/destacar-imovel/?immobile_id=<?php echo $property_id; ?>" class="action-button highlight-button" title="Reativar Destaque">
-                                        <i class="fas fa-star"></i>
+                                        <i class="fas fa-star"></i> <span class="button-label">Reativar</span>
                                     </a>
                                 <?php else : ?>
                                     <button class="action-button pause-highlight-button" data-id="<?php echo $property_id; ?>" title="Pausar Destaque">
-                                        <i class="fas fa-pause"></i>
+                                        <i class="fas fa-pause"></i> <span class="button-label">Pausar</span>
                                     </button>
                                 <?php endif; ?>
                             <?php else : ?>
                                 <a href="/corretores/destacar-imovel/?immobile_id=<?php echo $property_id; ?>" class="action-button highlight-button" title="Destacar">
-                                    <i class="fas fa-star"></i>
+                                    <i class="fas fa-star"></i> <span class="button-label">Destacar</span>
                                 </a>
                             <?php endif; ?>
                             
@@ -278,6 +278,18 @@ function broker_dashboard_content($atts) {
     </div>
     
     <style>
+        /* Estilos gerais */
+        .broker-dashboard {
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        /* Seção de métricas */
         .metrics-section {
             background-color: #fff;
             border-radius: 8px;
@@ -291,16 +303,7 @@ function broker_dashboard_content($atts) {
             height: 300px;
         }
         
-        .broker-dashboard {
-            padding: 20px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        h2 {
-            margin-bottom: 20px;
-            color: #333;
-        }
-        
+        /* Controles do painel */
         .dashboard-controls {
             display: flex;
             justify-content: space-between;
@@ -358,6 +361,7 @@ function broker_dashboard_content($atts) {
             margin-right: 5px;
         }
         
+        /* Lista de imóveis */
         .property-list {
             background-color: #fff;
             border-radius: 8px;
@@ -399,9 +403,10 @@ function broker_dashboard_content($atts) {
             display: flex;
             align-items: center;
             justify-content: center;
-            background-color: #f0f0f0;
+            background-color: #f5f5f5;
             color: #999;
             font-size: 12px;
+            text-align: center;
         }
         
         .property-details {
@@ -468,59 +473,82 @@ function broker_dashboard_content($atts) {
             color: white;
         }
         
+        /* Botões de ação */
         .property-actions {
             display: flex;
-            gap: 10px;
+            gap: 8px;
+            margin-left: auto;
         }
         
         .action-button {
-            width: 36px;
-            height: 36px;
-            display: flex;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
+            width: auto;
+            min-width: 36px;
+            height: 36px;
             border-radius: 4px;
+            background-color: #f5f5f5;
+            color: #333;
             border: none;
             cursor: pointer;
-            color: white;
-            transition: background-color 0.2s;
+            transition: background-color 0.2s, color 0.2s;
+            text-decoration: none;
+            padding: 0 10px;
+        }
+        
+        .action-button i {
+            font-size: 14px;
+        }
+        
+        .action-button .button-label {
+            margin-left: 5px;
+            font-size: 14px;
         }
         
         .edit-button {
-            background-color: #2196F3;
+            background-color: #f5f5f5;
+            color: #333;
         }
         
         .edit-button:hover {
-            background-color: #0b7dda;
+            background-color: #e0e0e0;
+            color: #333;
+            text-decoration: none;
         }
         
         .highlight-button {
-            background-color: #FFC107;
-            color: #212121;
+            background-color: #4CAF50;
+            color: white;
         }
         
         .highlight-button:hover {
-            background-color: #FFA000;
-            color: #212121;
+            background-color: #43a047;
+            color: white;
             text-decoration: none;
         }
         
         .pause-highlight-button {
-            background-color: #FF9800;
+            background-color: #ff9800;
+            color: white;
         }
         
         .pause-highlight-button:hover {
-            background-color: #F57C00;
+            background-color: #f57c00;
+            color: white;
         }
         
         .delete-button {
-            background-color: #F44336;
+            background-color: #f44336;
+            color: white;
         }
         
         .delete-button:hover {
-            background-color: #D32F2F;
+            background-color: #e53935;
+            color: white;
         }
         
+        /* Mensagem de sem imóveis */
         .no-properties-message {
             padding: 30px;
             text-align: center;
@@ -535,49 +563,39 @@ function broker_dashboard_content($atts) {
             display: inline-block;
         }
         
+        /* Responsividade */
         @media (max-width: 768px) {
             .property-item {
                 flex-direction: column;
                 align-items: flex-start;
             }
             
-            .property-select {
-                align-self: flex-start;
-                margin-bottom: 10px;
-            }
-            
             .property-thumbnail {
-                width: 100%;
-                height: 180px;
+                margin-bottom: 10px;
                 margin-right: 0;
-                margin-bottom: 15px;
+                width: 100%;
+                height: 150px;
             }
             
             .property-details {
                 width: 100%;
-                margin-bottom: 15px;
+                margin-bottom: 10px;
             }
             
             .property-actions {
                 width: 100%;
-                justify-content: flex-end;
-            }
-            
-            .dashboard-controls {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-            
-            .dashboard-controls-right {
-                margin-top: 15px;
-                display: flex;
-                flex-wrap: wrap;
-                gap: 10px;
-            }
-            
-            .add-property-button, .payment-settings-button {
+                justify-content: flex-start;
                 margin-left: 0;
-                margin-bottom: 10px;
+                margin-top: 10px;
+            }
+            
+            .action-button {
+                flex: 1;
+                justify-content: center;
+            }
+            
+            .action-button .button-label {
+                display: inline-block;
             }
         }
     </style>
