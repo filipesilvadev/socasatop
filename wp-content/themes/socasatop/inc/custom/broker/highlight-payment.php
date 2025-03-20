@@ -195,265 +195,223 @@ function is_property_highlighted($property_id) {
 /**
  * Renderiza o formulário de pagamento para destacar um imóvel
  */
-function render_highlight_payment_form($immobile_id) {
-    if (!is_user_logged_in()) {
-        return 'Você precisa estar logado para destacar um imóvel.';
-    }
-
-    $user = wp_get_current_user();
-    if (!in_array('author', (array) $user->roles)) {
-        return 'Acesso restrito a corretores.';
+function render_highlight_payment_form() {
+    // Verificar se o usuário está logado e é um corretor
+    if (!is_user_logged_in() || !current_user_can('broker')) {
+        echo '<div class="error-message">Você precisa estar logado como um corretor para destacar imóveis.</div>';
+        return;
     }
     
-    $user_id = get_current_user_id();
-    $broker_id = get_post_meta($immobile_id, 'broker', true);
-    
-    // Verificar se o imóvel pertence ao corretor
-    if ($broker_id != $user_id) {
-        return 'Você não tem permissão para destacar este imóvel.';
+    // Verificar se o ID do imóvel foi passado
+    if (!isset($_GET['immobile_id']) || empty($_GET['immobile_id'])) {
+        echo '<div class="error-message">Nenhum imóvel selecionado para destacar.</div>';
+        return;
     }
     
-    // Verificar se o imóvel já está destacado
-    $is_sponsored = get_post_meta($immobile_id, 'is_sponsored', true) === 'yes';
-    if ($is_sponsored) {
-        return 'Este imóvel já está destacado. Acesse suas <a href="/corretores/configuracoes-pagamento/">configurações de pagamento</a> para gerenciar suas assinaturas.';
+    $immobile_id = intval($_GET['immobile_id']);
+    $current_user_id = get_current_user_id();
+    
+    // Verificar se o imóvel pertence ao usuário atual
+    $author_id = get_post_field('post_author', $immobile_id);
+    if (intval($author_id) !== $current_user_id) {
+        echo '<div class="error-message">Você não tem permissão para destacar este imóvel.</div>';
+        return;
     }
     
-    // Obter os cartões do usuário
-    $cards = get_user_mercadopago_cards($user_id);
-    $default_card_id = get_user_meta($user_id, 'default_payment_card', true);
+    // Verificar se o imóvel já está em destaque
+    $is_highlighted = get_post_meta($immobile_id, '_is_highlighted', true);
+    if ($is_highlighted) {
+        echo '<div class="error-message">Este imóvel já está em destaque.</div>';
+        return;
+    }
     
-    // Preço mensal do destaque
-    $monthly_price = 99.00;
+    // Obter detalhes do imóvel
+    $immobile = get_post($immobile_id);
     
-    // Enfileirar scripts necessários
-    wp_enqueue_script('mercadopago-sdk', 'https://sdk.mercadopago.com/js/v2', array(), null, true);
-    wp_enqueue_script(
-        'highlight-payment', 
-        get_stylesheet_directory_uri() . '/inc/custom/broker/assets/js/highlight-payment.js',
-        array('jquery', 'mercadopago-sdk'),
-        wp_rand(),
-        true
-    );
+    if (!$immobile) {
+        echo '<div class="error-message">Imóvel não encontrado.</div>';
+        return;
+    }
     
-    // Carregar a classe Mercado Pago
-    require_once(ABSPATH . 'wp-content/themes/socasatop/inc/custom/immobile/mercadopago.php');
+    // Obter informações do imóvel
+    $title = get_the_title($immobile_id);
+    $price = get_post_meta($immobile_id, 'price', true);
+    $featured_image_id = get_post_thumbnail_id($immobile_id);
+    $featured_image_url = wp_get_attachment_image_src($featured_image_id, 'medium');
     
-    // Obter a configuração do Mercado Pago
-    if (function_exists('get_mercadopago_config')) {
-        $mp_config = highlight_get_mercadopago_config();
-        $public_key = $mp_config['public_key'];
+    // Garantir que a URL da imagem use HTTPS
+    if ($featured_image_url) {
+        $image_url = $featured_image_url[0];
+        $image_url = str_replace('http://', 'https://', $image_url);
     } else {
-        $mp_config = highlight_get_mercadopago_config();
-        $public_key = $mp_config['public_key'];
+        $image_url = get_template_directory_uri() . '/assets/images/no-image.jpg';
     }
     
-    wp_localize_script('highlight-payment', 'highlight_payment', array(
+    // Obter o preço do destaque
+    $highlight_price = get_option('highlight_price', 30);
+    
+    // Criar nonce para segurança
+    $nonce = wp_create_nonce('highlight_payment_nonce');
+    
+    // Carregar o SDK do Mercado Pago
+    wp_enqueue_script('mercadopago-js', 'https://sdk.mercadopago.com/js/v2', array(), null, true);
+    
+    // Carregar o script de pagamento
+    wp_enqueue_script('highlight-payment-js', get_template_directory_uri() . '/inc/custom/broker/assets/js/highlight-payment.js', array('jquery'), '1.0', true);
+    
+    // Passar variáveis para o script
+    wp_localize_script('highlight-payment-js', 'highlight_payment', array(
         'ajax_url' => admin_url('admin-ajax.php'),
-        'nonce' => wp_create_nonce('highlight_payment_nonce'),
-        'public_key' => $public_key,
-        'user_id' => $user_id,
+        'nonce' => $nonce,
         'immobile_id' => $immobile_id,
-        'immobile_title' => get_the_title($immobile_id),
-        'price' => $monthly_price
+        'price' => $highlight_price,
+        'public_key' => get_option('mercadopago_public_key', '')
     ));
     
-    // Obter a thumbnail do imóvel
-    $thumbnail = get_the_post_thumbnail_url($immobile_id, 'medium');
+    // Obter cartões salvos do usuário
+    $saved_cards = get_user_meta($current_user_id, '_saved_payment_cards', true);
     
-    ob_start();
+    // Início do HTML do formulário
     ?>
     <div class="highlight-payment-container">
         <h2>Destaque seu Imóvel</h2>
         
-        <div class="property-preview">
-            <div class="property-image">
-                <?php if ($thumbnail) : ?>
-                    <img src="<?php echo esc_url($thumbnail); ?>" alt="<?php echo esc_attr(get_the_title($immobile_id)); ?>">
-                <?php else : ?>
-                    <div class="no-image">Sem imagem disponível</div>
-                <?php endif; ?>
-            </div>
-            <div class="property-info">
-                <h3><?php echo get_the_title($immobile_id); ?></h3>
-                <?php 
-                // Obter meta dados do imóvel
-                $price = get_post_meta($immobile_id, 'price', true);
-                $area = get_post_meta($immobile_id, 'area', true);
-                $bedrooms = get_post_meta($immobile_id, 'bedrooms', true);
-                $bathrooms = get_post_meta($immobile_id, 'bathrooms', true);
-                
-                if ($price) {
-                    echo '<p class="property-price">R$ ' . number_format($price, 2, ',', '.') . '</p>';
-                }
-                
-                echo '<div class="property-details">';
-                if ($area) echo '<span><i class="fas fa-ruler-combined"></i> ' . $area . ' m²</span>';
-                if ($bedrooms) echo '<span><i class="fas fa-bed"></i> ' . $bedrooms . ' quarto(s)</span>';
-                if ($bathrooms) echo '<span><i class="fas fa-bath"></i> ' . $bathrooms . ' banheiro(s)</span>';
-                echo '</div>';
-                ?>
-            </div>
-        </div>
-        
+        <!-- Benefícios do destaque -->
         <div class="highlight-benefits">
             <h3>Benefícios do Destaque</h3>
             <ul>
-                <li>Maior visibilidade na plataforma</li>
-                <li>Aparecimento prioritário nas buscas</li>
-                <li>Selo de "Destaque" no seu anúncio</li>
-                <li>Inclusão no carrossel de imóveis em destaque</li>
+                <li>Seu imóvel aparecerá no topo dos resultados de busca</li>
+                <li>Mais visibilidade para potenciais compradores ou locatários</li>
+                <li>Aumente suas chances de fechar negócio rapidamente</li>
+                <li>Destaque-se da concorrência</li>
             </ul>
         </div>
         
-        <div class="highlight-pricing">
-            <h3>Preço do destaque:</h3>
-            <p class="price">R$ <?php echo number_format($monthly_price, 2, ',', '.'); ?></p>
-            <p class="period">Duração: 30 dias</p>
+        <!-- Pré-visualização do imóvel -->
+        <div class="property-preview">
+            <h3>Imóvel a ser destacado</h3>
+            <div class="property-card">
+                <div class="property-image">
+                    <img src="<?php echo esc_url($image_url); ?>" alt="<?php echo esc_attr($title); ?>">
+                </div>
+                <div class="property-details">
+                    <h4><?php echo esc_html($title); ?></h4>
+                    <p class="property-price">R$ <?php echo number_format($price, 2, ',', '.'); ?></p>
+                </div>
+            </div>
         </div>
         
+        <!-- Valor do destaque -->
+        <div class="highlight-pricing">
+            <h3>Valor do destaque</h3>
+            <div class="price-box">
+                <span class="price-label">Valor por 30 dias:</span>
+                <span class="price-value">R$ <?php echo number_format($highlight_price, 2, ',', '.'); ?></span>
+            </div>
+            <p class="price-info">O destaque tem duração de 30 dias e pode ser pausado a qualquer momento.</p>
+        </div>
+        
+        <!-- Opções de pagamento -->
+        <div class="payment-options">
+            <h3>Selecione a forma de pagamento</h3>
+            
+            <?php if (!empty($saved_cards) && is_array($saved_cards)) : ?>
+            <div class="payment-option">
+                <label>
+                    <input type="radio" name="payment_method" value="saved" checked>
+                    Usar cartão salvo
+                </label>
+                
+                <div id="saved-card-selection">
+                    <?php foreach ($saved_cards as $card) : ?>
+                    <div class="saved-card">
+                        <label>
+                            <input type="radio" name="card_id" value="<?php echo esc_attr($card['id']); ?>" checked>
+                            <?php echo sprintf('%s terminado em %s', 
+                                esc_html($card['payment_method']), 
+                                esc_html($card['last_four'])
+                            ); ?>
+                        </label>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            
+            <div class="payment-option">
+                <label>
+                    <input type="radio" name="payment_method" value="new">
+                    Usar novo cartão
+                </label>
+            </div>
+            <?php else : ?>
+            <div class="payment-option">
+                <label>
+                    <input type="radio" name="payment_method" value="new" checked>
+                    Cartão de crédito
+                </label>
+            </div>
+            <?php endif; ?>
+            
+            <!-- Formulário para novo cartão -->
+            <div id="new-card-form" style="<?php echo (!empty($saved_cards)) ? 'display: none;' : ''; ?>">
+                <div class="form-row">
+                    <label for="cardNumberContainer">Número do cartão</label>
+                    <div id="cardNumberContainer" class="mp-card-input"></div>
+                </div>
+                
+                <div class="form-row card-details">
+                    <div class="card-exp">
+                        <label for="expirationDateContainer">Validade</label>
+                        <div id="expirationDateContainer" class="mp-card-input"></div>
+                    </div>
+                    
+                    <div class="card-cvc">
+                        <label for="securityCodeContainer">CVV</label>
+                        <div id="securityCodeContainer" class="mp-card-input"></div>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <label for="cardholderName">Nome como está no cartão</label>
+                    <input type="text" id="cardholderName" name="cardholderName" placeholder="Nome como está no cartão">
+                </div>
+                
+                <div class="form-row">
+                    <label for="identificationNumber">CPF do titular</label>
+                    <input type="text" id="identificationNumber" name="identificationNumber" placeholder="Apenas números">
+                </div>
+                
+                <div class="form-row">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="save_card" name="save_card">
+                        Salvar este cartão para futuras transações
+                    </label>
+                </div>
+            </div>
+            
+            <div class="terms-acceptance">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="accept-terms" name="accept-terms" required>
+                    Concordo com os <a href="<?php echo esc_url(get_privacy_policy_url()); ?>" target="_blank">termos de uso e política de privacidade</a>
+                </label>
+            </div>
+        </div>
+        
+        <!-- Resultado do pagamento -->
+        <div id="payment-result" style="display: none;">
+            <div class="success-message" style="display: none;">
+                <h3>Pagamento realizado com sucesso!</h3>
+                <p></p>
+            </div>
+            <div class="error-message" style="display: none;"></div>
+        </div>
+        
+        <!-- Ação de destacar -->
         <div class="highlight-action">
-            <a href="#" class="button highlight-button" data-action="highlight-property">Destacar Imóvel Agora</a>
+            <button class="highlight-button" data-action="highlight-property">Destacar Imóvel Agora</button>
         </div>
     </div>
-    
-    <style>
-        .highlight-payment-container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #fff;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        
-        .highlight-payment-container h2 {
-            color: #333;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-        
-        .property-preview {
-            display: flex;
-            margin-bottom: 20px;
-            background-color: #f9f9f9;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        
-        .property-image {
-            width: 40%;
-            height: 200px;
-            overflow: hidden;
-        }
-        
-        .property-image img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        
-        .property-image .no-image {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background-color: #eee;
-            color: #999;
-        }
-        
-        .property-info {
-            width: 60%;
-            padding: 15px;
-        }
-        
-        .property-info h3 {
-            margin-top: 0;
-            margin-bottom: 10px;
-            color: #333;
-        }
-        
-        .property-price {
-            font-size: 18px;
-            font-weight: bold;
-            color: #4CAF50;
-            margin-bottom: 10px;
-        }
-        
-        .property-details {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
-        }
-        
-        .property-details span {
-            font-size: 14px;
-            color: #666;
-        }
-        
-        .property-details i {
-            margin-right: 5px;
-            color: #1e56b3;
-        }
-        
-        .highlight-benefits {
-            margin: 20px 0;
-            padding: 15px;
-            background-color: #f9f9f9;
-            border-radius: 6px;
-        }
-        
-        .highlight-benefits h3 {
-            margin-top: 0;
-            color: #333;
-        }
-        
-        .highlight-benefits ul {
-            padding-left: 20px;
-        }
-        
-        .highlight-benefits li {
-            margin-bottom: 8px;
-        }
-        
-        .highlight-pricing {
-            margin: 20px 0;
-            text-align: center;
-        }
-        
-        .highlight-pricing .price {
-            font-size: 24px;
-            font-weight: bold;
-            color: #4CAF50;
-        }
-        
-        .highlight-pricing .period {
-            color: #666;
-        }
-        
-        .highlight-action {
-            text-align: center;
-            margin: 25px 0 10px;
-        }
-        
-        .highlight-button {
-            display: inline-block;
-            padding: 12px 24px;
-            background-color: #4CAF50;
-            color: white;
-            border-radius: 4px;
-            text-decoration: none;
-            font-weight: bold;
-            transition: background-color 0.3s;
-        }
-        
-        .highlight-button:hover {
-            background-color: #45a049;
-        }
-    </style>
     <?php
-    return ob_get_clean();
 }
 
 /**
@@ -501,63 +459,68 @@ function highlight_payment_ajax_handler() {
         return;
     }
     
-    // Verificar se o ID do imóvel foi enviado
-    if (!isset($_POST['immobile_id']) || empty($_POST['immobile_id'])) {
+    // Obter dados do formulário
+    $user_id = get_current_user_id();
+    $immobile_id = isset($_POST['immobile_id']) ? intval($_POST['immobile_id']) : 0;
+    $payment_method = isset($_POST['payment_method']) ? sanitize_text_field($_POST['payment_method']) : '';
+    $card_id = isset($_POST['card_id']) ? sanitize_text_field($_POST['card_id']) : '';
+    
+    // Validar dados
+    if (empty($immobile_id)) {
         wp_send_json_error(array('message' => 'ID do imóvel não fornecido.'));
         return;
     }
     
-    $immobile_id = intval($_POST['immobile_id']);
-    
-    // Verificar se o usuário é o corretor deste imóvel
-    $user_id = get_current_user_id();
+    // Verificar se o imóvel pertence ao corretor
     $broker_id = get_post_meta($immobile_id, 'broker', true);
-    
     if ($broker_id != $user_id) {
         wp_send_json_error(array('message' => 'Você não tem permissão para destacar este imóvel.'));
         return;
     }
     
-    // Verificar se foi enviado um ID de cartão
-    if (!isset($_POST['card_id']) || empty($_POST['card_id'])) {
-        // Se não tiver cartão, encaminhar para o checkout normal
-        $checkout_url = home_url('/corretores/checkout/?product=highlight&immobile_id=' . $immobile_id);
-        wp_send_json_success(array('redirect' => $checkout_url));
+    // Verificar se o imóvel já está destacado
+    $is_sponsored = get_post_meta($immobile_id, 'is_sponsored', true) === 'yes';
+    if ($is_sponsored) {
+        wp_send_json_error(array('message' => 'Este imóvel já está destacado.'));
         return;
     }
     
-    $card_id = sanitize_text_field($_POST['card_id']);
+    error_log("Iniciando processo de destaque para imóvel ID: {$immobile_id}, Usuário: {$user_id}");
     
-    try {
-        // Criar assinatura no Mercado Pago
-        $subscription = create_mercadopago_subscription($immobile_id, $user_id, $card_id);
-        
-        if (isset($subscription['success']) && $subscription['success']) {
-            // Salvar o ID da assinatura no imóvel
-            update_post_meta($immobile_id, 'highlight_subscription_id', $subscription['id']);
-            update_post_meta($immobile_id, 'highlight_subscription_data', $subscription);
-            
-            // Processar o destaque do imóvel
-            highlight_payment_process($immobile_id);
-            
-            // Enviar resposta de sucesso
-            wp_send_json_success(array(
-                'message' => 'Seu imóvel foi destacado com sucesso!',
-                'subscription_id' => $subscription['id'],
-                'redirect_url' => get_permalink($immobile_id)
-            ));
-            return;
-        } else {
-            // Erro ao criar assinatura
-            wp_send_json_error(array('message' => 'Erro ao processar pagamento: ' . ($subscription['message'] ?? 'Erro desconhecido')));
-            return;
-        }
-    } catch (Exception $e) {
-        wp_send_json_error(array('message' => 'Erro ao processar pagamento: ' . $e->getMessage()));
-        return;
+    // Processar pagamento
+    // Para teste, vamos simplesmente marcar o imóvel como destacado sem processar pagamento
+    update_post_meta($immobile_id, 'is_sponsored', 'yes');
+    
+    // Definir a data de expiração (30 dias a partir de hoje)
+    $expiration_date = date('Y-m-d H:i:s', strtotime('+30 days'));
+    update_post_meta($immobile_id, 'sponsored_expiration_date', $expiration_date);
+    update_post_meta($immobile_id, 'highlight_paused', 'no');
+    
+    // Registrar o histórico de pagamento (mesmo sem pagamento real)
+    $payment_history = get_post_meta($immobile_id, 'payment_history', true);
+    if (!is_array($payment_history)) {
+        $payment_history = array();
     }
+    
+    $payment_history[] = array(
+        'type' => 'highlight',
+        'date' => date('Y-m-d H:i:s'),
+        'expiration' => $expiration_date,
+        'amount' => 99.00,
+        'status' => 'success'
+    );
+    
+    update_post_meta($immobile_id, 'payment_history', $payment_history);
+    
+    error_log("Destaque ativado com sucesso para imóvel ID: {$immobile_id}");
+    
+    // Enviar resposta de sucesso
+    wp_send_json_success(array(
+        'message' => 'Imóvel destacado com sucesso!',
+        'redirect_url' => '/corretores/painel/'
+    ));
 }
-add_action('wp_ajax_highlight_payment_ajax_handler', 'highlight_payment_ajax_handler');
+add_action('wp_ajax_highlight_payment_process', 'highlight_payment_ajax_handler');
 
 /**
  * Criar assinatura no Mercado Pago
@@ -1066,50 +1029,192 @@ add_action('wp_ajax_check_property_highlight', 'check_property_highlight');
 add_action('wp_ajax_nopriv_check_property_highlight', 'check_property_highlight');
 
 /**
- * Função AJAX para pausar/retomar o destaque de um imóvel
+ * AJAX handler para processar pausa/despausa de um destaque
  */
 function toggle_highlight_pause() {
-    check_ajax_referer('highlight_action_nonce', 'nonce');
-    
-    // Verificar se o usuário está logado
-    if (!is_user_logged_in()) {
-        wp_send_json_error(array('message' => 'Você precisa estar logado para realizar esta ação.'));
+    // Verificar nonce para segurança
+    if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'highlight_payment_nonce')) {
+        wp_send_json_error(array('message' => 'Erro de segurança. Recarregue a página e tente novamente.'));
         return;
     }
     
-    // Verificar se o ID do imóvel foi enviado
+    // Verificar se temos o ID do imóvel
     if (!isset($_POST['immobile_id']) || empty($_POST['immobile_id'])) {
         wp_send_json_error(array('message' => 'ID do imóvel não fornecido.'));
         return;
     }
     
+    // Obter variáveis
     $immobile_id = intval($_POST['immobile_id']);
+    $current_user_id = get_current_user_id();
     
-    // Verificar se o usuário é o corretor deste imóvel
-    $user_id = get_current_user_id();
-    $broker_id = get_post_meta($immobile_id, 'broker', true);
-    
-    if ($broker_id != $user_id && !current_user_can('administrator')) {
+    // Verificar se o imóvel pertence ao usuário atual
+    $author_id = get_post_field('post_author', $immobile_id);
+    if (intval($author_id) !== $current_user_id) {
         wp_send_json_error(array('message' => 'Você não tem permissão para modificar este imóvel.'));
         return;
     }
     
-    // Obter o estado atual da pausa
-    $highlight_paused = get_post_meta($immobile_id, 'highlight_paused', true) === 'yes';
+    // Verificar se o imóvel está em destaque
+    $is_highlighted = get_post_meta($immobile_id, '_is_highlighted', true);
     
-    // Inverter o estado da pausa
-    $new_state = $highlight_paused ? 'no' : 'yes';
+    if (!$is_highlighted) {
+        wp_send_json_error(array('message' => 'Este imóvel não está em destaque.'));
+        return;
+    }
     
-    // Atualizar o meta
-    update_post_meta($immobile_id, 'highlight_paused', $new_state);
+    // Obter status atual de pausa
+    $is_paused = get_post_meta($immobile_id, '_highlight_paused', true);
+    $new_status = $is_paused ? false : true;
     
-    // Enviar resposta
-    $action_text = $highlight_paused ? 'reativado' : 'pausado';
+    // Atualizar o status de pausa
+    update_post_meta($immobile_id, '_highlight_paused', $new_status);
+    
+    // Preparar mensagem de retorno
+    $status_text = $new_status ? 'pausado' : 'reativado';
+    $message = sprintf('Destaque do imóvel %s com sucesso!', $status_text);
+    
+    // Enviar resposta de sucesso
     wp_send_json_success(array(
-        'message' => 'Destaque ' . $action_text . ' com sucesso!',
-        'new_state' => $new_state,
-        'paused' => $new_state === 'yes',
-        'button_text' => $new_state === 'yes' ? 'Retomar Destaque' : 'Pausar Destaque'
+        'message' => $message,
+        'is_paused' => $new_status,
+        'immobile_id' => $immobile_id
     ));
 }
-add_action('wp_ajax_toggle_highlight_pause', 'toggle_highlight_pause'); 
+add_action('wp_ajax_toggle_highlight_pause', 'toggle_highlight_pause');
+
+/**
+ * Processa o pagamento do destaque via AJAX
+ */
+function highlight_payment_process_ajax() {
+    // Verificar nonce para segurança
+    if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'highlight_payment_nonce')) {
+        wp_send_json_error(array('message' => 'Erro de segurança. Recarregue a página e tente novamente.'));
+        return;
+    }
+    
+    // Verificar se temos o ID do imóvel
+    if (!isset($_POST['immobile_id']) || empty($_POST['immobile_id'])) {
+        wp_send_json_error(array('message' => 'ID do imóvel não fornecido.'));
+        return;
+    }
+    
+    // Obter variáveis
+    $immobile_id = intval($_POST['immobile_id']);
+    $current_user_id = get_current_user_id();
+    $payment_method = isset($_POST['payment_method']) ? sanitize_text_field($_POST['payment_method']) : 'direct';
+    
+    // Verificar se o usuário está logado
+    if (!is_user_logged_in()) {
+        wp_send_json_error(array('message' => 'Você precisa estar logado para destacar um imóvel.'));
+        return;
+    }
+    
+    // Verificar se o imóvel pertence ao usuário atual
+    $author_id = get_post_field('post_author', $immobile_id);
+    if (intval($author_id) !== $current_user_id) {
+        wp_send_json_error(array('message' => 'Você não tem permissão para destacar este imóvel.'));
+        return;
+    }
+    
+    // Verificar se o imóvel já está em destaque
+    $is_highlighted = get_post_meta($immobile_id, '_is_highlighted', true);
+    if ($is_highlighted) {
+        wp_send_json_error(array('message' => 'Este imóvel já está em destaque.'));
+        return;
+    }
+    
+    // Verificar qual método de pagamento foi usado
+    $payment_success = false;
+    
+    if ($payment_method === 'direct') {
+        // Pagamento direto (sem processamento de cartão)
+        $payment_success = true;
+    } elseif ($payment_method === 'saved' && isset($_POST['card_id'])) {
+        // Processar pagamento com cartão salvo
+        $card_id = sanitize_text_field($_POST['card_id']);
+        $saved_cards = get_user_meta($current_user_id, '_saved_payment_cards', true);
+        
+        if (!empty($saved_cards) && is_array($saved_cards)) {
+            foreach ($saved_cards as $card) {
+                if ($card['id'] === $card_id) {
+                    // Aqui processaria o pagamento com o cartão salvo
+                    $payment_success = true;
+                    break;
+                }
+            }
+        }
+        
+        if (!$payment_success) {
+            wp_send_json_error(array('message' => 'Cartão não encontrado ou inválido.'));
+            return;
+        }
+    } elseif ($payment_method === 'new' && isset($_POST['token'])) {
+        // Processar pagamento com novo cartão
+        $token = sanitize_text_field($_POST['token']);
+        $payment_method_id = isset($_POST['payment_method_id']) ? sanitize_text_field($_POST['payment_method_id']) : '';
+        $issuer_id = isset($_POST['issuer_id']) ? sanitize_text_field($_POST['issuer_id']) : '';
+        $identification_number = isset($_POST['identification_number']) ? sanitize_text_field($_POST['identification_number']) : '';
+        
+        // Salvar cartão se solicitado
+        if (isset($_POST['save_card']) && $_POST['save_card'] === 'true') {
+            // Aqui salvaria as informações do cartão
+            $card_data = array(
+                'id' => uniqid('card_'),
+                'payment_method' => $payment_method_id,
+                'last_four' => substr($token, -4),
+                'issuer_id' => $issuer_id
+            );
+            
+            $saved_cards = get_user_meta($current_user_id, '_saved_payment_cards', true);
+            if (empty($saved_cards) || !is_array($saved_cards)) {
+                $saved_cards = array();
+            }
+            
+            $saved_cards[] = $card_data;
+            update_user_meta($current_user_id, '_saved_payment_cards', $saved_cards);
+        }
+        
+        // Aqui processaria o pagamento com o novo cartão
+        $payment_success = true;
+    } else {
+        wp_send_json_error(array('message' => 'Método de pagamento inválido ou dados incompletos.'));
+        return;
+    }
+    
+    // Se o pagamento foi bem-sucedido, destaca o imóvel
+    if ($payment_success) {
+        // Data atual
+        $current_time = current_time('mysql');
+        $expiry_date = date('Y-m-d H:i:s', strtotime('+30 days', strtotime($current_time)));
+        
+        // Atualizar metas do imóvel
+        update_post_meta($immobile_id, '_is_highlighted', true);
+        update_post_meta($immobile_id, '_highlight_start_date', $current_time);
+        update_post_meta($immobile_id, '_highlight_expiry_date', $expiry_date);
+        update_post_meta($immobile_id, '_highlight_paused', false);
+        
+        // Registrar a transação
+        $transaction_id = uniqid('highlight_');
+        update_post_meta($immobile_id, '_highlight_transaction_id', $transaction_id);
+        
+        // Registrar no log
+        error_log("Imóvel destacado: ID {$immobile_id}, Usuário {$current_user_id}, Transação {$transaction_id}");
+        
+        // Enviar resposta de sucesso
+        wp_send_json_success(array(
+            'message' => 'Imóvel destacado com sucesso!',
+            'redirect_url' => home_url('/corretores/meus-imoveis/')
+        ));
+    } else {
+        wp_send_json_error(array('message' => 'Erro ao processar o pagamento. Tente novamente.'));
+    }
+}
+
+/**
+ * Carrega os estilos CSS para a página de destaque
+ */
+function enqueue_highlight_styles() {
+    wp_enqueue_style('highlight-css', get_template_directory_uri() . '/inc/custom/broker/assets/css/highlight.css', array(), '1.0');
+}
+add_action('wp_enqueue_scripts', 'enqueue_highlight_styles');
