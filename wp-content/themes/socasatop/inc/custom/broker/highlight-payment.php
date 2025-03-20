@@ -219,14 +219,27 @@ function render_highlight_payment_form($immobile_id = 0) {
     
     // Verificar se o imóvel pertence ao usuário atual ou se é administrador
     $author_id = get_post_field('post_author', $immobile_id);
-    if (intval($author_id) !== $current_user_id && !current_user_can('administrator')) {
+    $broker_id = get_post_meta($immobile_id, 'broker', true);
+    
+    // Verificar várias condições: se o usuário é autor, corretor ou administrador do imóvel
+    $is_author = intval($author_id) === $current_user_id;
+    $is_broker = !empty($broker_id) && intval($broker_id) === $current_user_id;
+    $is_admin = current_user_can('administrator');
+    
+    if (!$is_author && !$is_broker && !$is_admin) {
         echo '<div class="error-message">Você não tem permissão para destacar este imóvel.</div>';
+        
+        // Debug
+        echo '<!-- Debug: user_id=' . $current_user_id . ', author_id=' . $author_id . ', broker_id=' . $broker_id . ' -->';
+        
         return;
     }
     
     // Verificar se o imóvel já está em destaque
     $is_highlighted = get_post_meta($immobile_id, '_is_highlighted', true);
-    if ($is_highlighted) {
+    $is_sponsored = get_post_meta($immobile_id, 'is_sponsored', true);
+    
+    if ($is_highlighted || $is_sponsored === 'yes') {
         echo '<div class="error-message">Este imóvel já está em destaque.</div>';
         return;
     }
@@ -1149,7 +1162,17 @@ function highlight_payment_process_ajax() {
     
     // Verificar se o imóvel pertence ao usuário atual ou se é administrador
     $author_id = get_post_field('post_author', $immobile_id);
-    if (intval($author_id) !== $current_user_id && !current_user_can('administrator')) {
+    $broker_id = get_post_meta($immobile_id, 'broker', true);
+    
+    // Verificar várias condições: se o usuário é autor, corretor ou administrador do imóvel
+    $is_author = intval($author_id) === $current_user_id;
+    $is_broker = !empty($broker_id) && intval($broker_id) === $current_user_id;
+    $is_admin = current_user_can('administrator');
+    
+    if (!$is_author && !$is_broker && !$is_admin) {
+        // Log para debug
+        error_log("Permissão negada para destacar imóvel: user_id={$current_user_id}, author_id={$author_id}, broker_id={$broker_id}");
+        
         wp_send_json_error(array('message' => 'Você não tem permissão para destacar este imóvel.'));
         return;
     }
