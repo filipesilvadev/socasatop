@@ -1039,42 +1039,73 @@ add_action('wp_ajax_nopriv_check_property_highlight', 'check_property_highlight'
  */
 function toggle_highlight_pause() {
     // Verificar nonce para segurança
-    if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'highlight_payment_nonce')) {
+    $nonce_valid = false;
+    
+    if (isset($_POST['nonce'])) {
+        // Tentativa com vários nonces possíveis
+        $nonce_valid = wp_verify_nonce($_POST['nonce'], 'highlight_payment_nonce');
+        
+        if (!$nonce_valid) {
+            $nonce_valid = wp_verify_nonce($_POST['nonce'], 'broker_dashboard_nonce');
+        }
+        
+        if (!$nonce_valid && isset($_POST['property_id'])) {
+            $nonce_valid = wp_verify_nonce($_POST['nonce'], 'broker_dashboard_nonce');
+        }
+    }
+    
+    if (!$nonce_valid) {
         wp_send_json_error(array('message' => 'Erro de segurança. Recarregue a página e tente novamente.'));
         return;
     }
     
     // Verificar se temos o ID do imóvel
-    if (!isset($_POST['immobile_id']) || empty($_POST['immobile_id'])) {
+    $immobile_id = 0;
+    if (isset($_POST['immobile_id']) && !empty($_POST['immobile_id'])) {
+        $immobile_id = intval($_POST['immobile_id']);
+    } elseif (isset($_POST['property_id']) && !empty($_POST['property_id'])) {
+        $immobile_id = intval($_POST['property_id']);
+    }
+    
+    if ($immobile_id === 0) {
         wp_send_json_error(array('message' => 'ID do imóvel não fornecido.'));
         return;
     }
     
     // Obter variáveis
-    $immobile_id = intval($_POST['immobile_id']);
     $current_user_id = get_current_user_id();
     
     // Verificar se o imóvel pertence ao usuário atual
+    $broker_id = get_post_meta($immobile_id, 'broker', true);
     $author_id = get_post_field('post_author', $immobile_id);
-    if (intval($author_id) !== $current_user_id) {
+    
+    if (intval($broker_id) !== $current_user_id && intval($author_id) !== $current_user_id && !current_user_can('administrator')) {
         wp_send_json_error(array('message' => 'Você não tem permissão para modificar este imóvel.'));
         return;
     }
     
     // Verificar se o imóvel está em destaque
     $is_highlighted = get_post_meta($immobile_id, '_is_highlighted', true);
+    $is_sponsored = get_post_meta($immobile_id, 'is_sponsored', true) === 'yes';
     
-    if (!$is_highlighted) {
+    if (!$is_highlighted && !$is_sponsored) {
         wp_send_json_error(array('message' => 'Este imóvel não está em destaque.'));
         return;
     }
     
     // Obter status atual de pausa
     $is_paused = get_post_meta($immobile_id, '_highlight_paused', true);
+    $highlight_paused = get_post_meta($immobile_id, 'highlight_paused', true);
+    
+    if (empty($is_paused) && !empty($highlight_paused)) {
+        $is_paused = $highlight_paused === 'yes';
+    }
+    
     $new_status = $is_paused ? false : true;
     
-    // Atualizar o status de pausa
+    // Atualizar o status de pausa em ambos os meta campos
     update_post_meta($immobile_id, '_highlight_paused', $new_status);
+    update_post_meta($immobile_id, 'highlight_paused', $new_status ? 'yes' : 'no');
     
     // Preparar mensagem de retorno
     $status_text = $new_status ? 'pausado' : 'reativado';

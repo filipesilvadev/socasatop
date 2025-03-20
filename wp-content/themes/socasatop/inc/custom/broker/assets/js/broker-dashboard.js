@@ -356,13 +356,16 @@
       $(document).on('click', '.highlight-button', function(e) {
         // Verificar se é um link de reativação (contém o parâmetro immobile_id na URL)
         const url = $(this).attr('href');
-        if (url && url.includes('immobile_id=')) {
+        
+        // Apenas se for o botão de reativação que queremos interceptar com Ajax
+        if (url && url.includes('immobile_id=') && $(this).text().trim().includes('Reativar')) {
           e.preventDefault();
           const propertyId = url.split('immobile_id=')[1].split('&')[0];
           if (confirm('Tem certeza que deseja reativar o destaque deste imóvel?')) {
             reactivateHighlight(propertyId, $(this));
           }
         }
+        // Se for o botão de destacar normal, deixar o link funcionar normalmente para redirecionar
       });
       
       // Função para excluir imóvel

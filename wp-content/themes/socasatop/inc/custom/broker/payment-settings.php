@@ -1054,104 +1054,159 @@ function create_payment_settings_js() {
 (function($) {
     $(document).ready(function() {
         // Inicializar SDK do Mercado Pago
-        const mp = new MercadoPago(payment_settings.public_key, {
-            locale: 'pt-BR'
-        });
+        console.log("Inicializando SDK do Mercado Pago com a chave:", payment_settings.public_key);
+        
+        let mp;
+        try {
+            mp = new MercadoPago(payment_settings.public_key, {
+                locale: 'pt-BR'
+            });
+            console.log("SDK do Mercado Pago inicializado com sucesso");
+        } catch (error) {
+            console.error("Erro ao inicializar SDK do Mercado Pago:", error);
+            showError("Erro ao inicializar o sistema de pagamento. Por favor, recarregue a página e tente novamente.");
+            return;
+        }
         
         let cardForm;
         
         // Mostrar formulário de novo cartão
-        $('#add-new-card').on('click', function() {
+        $('#add-new-card').on('click', function(e) {
+            e.preventDefault();
+            console.log("Clique no botão adicionar novo cartão");
             $('#card-form-container').show();
             $(this).hide();
             
-            // Inicializar formulário de cartão
-            cardForm = mp.cardForm({
-                amount: "49.90",
-                autoMount: true,
-                form: {
-                    id: "card-form",
-                    cardholderName: {
-                        id: "cardholderName",
-                        placeholder: "Titular do cartão"
+            try {
+                // Inicializar formulário de cartão
+                console.log("Tentando inicializar o formulário de cartão");
+                cardForm = mp.cardForm({
+                    amount: "49.90",
+                    autoMount: true,
+                    form: {
+                        id: "card-form",
+                        cardholderName: {
+                            id: "cardholderName",
+                            placeholder: "Titular do cartão"
+                        },
+                        cardNumber: {
+                            id: "cardNumberContainer",
+                            placeholder: "Número do cartão"
+                        },
+                        expirationDate: {
+                            id: "expirationDateContainer",
+                            placeholder: "MM/YY"
+                        },
+                        securityCode: {
+                            id: "securityCodeContainer",
+                            placeholder: "CVV"
+                        },
+                        installments: {
+                            id: "installments",
+                            placeholder: "Parcelas"
+                        },
+                        identificationType: {
+                            id: "identificationType"
+                        },
+                        identificationNumber: {
+                            id: "identificationNumber",
+                            placeholder: "Número do documento"
+                        }
                     },
-                    cardNumber: {
-                        id: "cardNumberContainer",
-                        placeholder: "Número do cartão"
-                    },
-                    expirationDate: {
-                        id: "expirationDateContainer",
-                        placeholder: "MM/YY"
-                    },
-                    securityCode: {
-                        id: "securityCodeContainer",
-                        placeholder: "CVV"
-                    },
-                    installments: {
-                        id: "installments",
-                        placeholder: "Parcelas"
-                    },
-                    identificationType: {
-                        id: "identificationType"
-                    },
-                    identificationNumber: {
-                        id: "identificationNumber",
-                        placeholder: "Número do documento"
+                    callbacks: {
+                        onFormMounted: error => {
+                            if (error) {
+                                console.log("Form Mounted error: ", error);
+                                showError("Erro ao montar o formulário: " + error);
+                            } else {
+                                console.log("Formulário montado com sucesso");
+                            }
+                        },
+                        onFormUnmounted: error => {
+                            if (error) {
+                                console.log("Form Unmounted error: ", error);
+                            }
+                        },
+                        onIdentificationTypesReceived: (error, identificationTypes) => {
+                            if (error) {
+                                console.log("identificationTypes error: ", error);
+                            } else {
+                                console.log("Tipos de identificação recebidos:", identificationTypes);
+                            }
+                        },
+                        onPaymentMethodsReceived: (error, paymentMethods) => {
+                            if (error) {
+                                console.log("paymentMethods error: ", error);
+                            } else {
+                                console.log("Métodos de pagamento recebidos:", paymentMethods);
+                            }
+                        },
+                        onIssuersReceived: (error, issuers) => {
+                            if (error) {
+                                console.log("issuers error: ", error);
+                            } else {
+                                console.log("Emissores recebidos:", issuers);
+                            }
+                        },
+                        onInstallmentsReceived: (error, installments) => {
+                            if (error) {
+                                console.log("installments error: ", error);
+                            } else {
+                                console.log("Parcelas recebidas:", installments);
+                            }
+                        },
+                        onCardTokenReceived: (error, token) => {
+                            if (error) {
+                                console.log("Token error: ", error);
+                                showError("Erro ao processar o cartão: " + error);
+                            } else {
+                                console.log("Token do cartão recebido:", token);
+                                // Adicionar token ao formulário
+                                $('#card_token').val(token);
+                            }
+                        },
+                        onSubmit: event => {
+                            event.preventDefault();
+                            console.log("Formulário enviado");
+                            
+                            // Pegar token do formulário
+                            const cardToken = $('#card_token').val();
+                            if (!cardToken) {
+                                showError("Erro ao processar o cartão. Por favor, verifique os dados e tente novamente.");
+                                return;
+                            }
+                            
+                            // Enviar token para o servidor
+                            saveCard(cardToken);
+                        },
+                        onFetching: (resource) => {
+                            console.log("Buscando recurso: ", resource);
+                            
+                            // Mostrar loader
+                            const resourceEl = $(`#${resource}`);
+                            if (resourceEl.length > 0) {
+                                showLoading(resource);
+                            }
+                        },
+                        onReadyToSubmit: () => {
+                            console.log("Formulário pronto para envio");
+                            $('#card-form-submit').prop('disabled', false);
+                        },
+                        onValidityChange: (error, field) => {
+                            console.log("Mudança de validade em campo:", field, error);
+                        },
+                        onError: (error) => {
+                            console.log("Form error: ", error);
+                            showError("Erro no formulário: " + error);
+                        }
                     }
-                },
-                callbacks: {
-                    onFormMounted: error => {
-                        if (error) {
-                            console.log("Form Mounted error: ", error);
-                            showError("Erro ao montar o formulário: " + error);
-                        }
-                    },
-                    onFormUnmounted: error => {
-                        if (error) {
-                            console.log("Form Unmounted error: ", error);
-                        }
-                    },
-                    onIdentificationTypesReceived: (error, identificationTypes) => {
-                        if (error) {
-                            console.log("identificationTypes error: ", error);
-                        }
-                    },
-                    onPaymentMethodsReceived: (error, paymentMethods) => {
-                        if (error) {
-                            console.log("paymentMethods error: ", error);
-                        }
-                    },
-                    onIssuersReceived: (error, issuers) => {
-                        if (error) {
-                            console.log("issuers error: ", error);
-                        }
-                    },
-                    onInstallmentsReceived: (error, installments) => {
-                        if (error) {
-                            console.log("installments error: ", error);
-                        }
-                    },
-                    onCardTokenReceived: (error, token) => {
-                        if (error) {
-                            console.log("Token error: ", error);
-                            showError("Erro ao processar o cartão: " + error);
-                        }
-                    },
-                    onSubmit: event => {
-                        event.preventDefault();
-                    },
-                    onFetching: (resource) => {
-                        console.log("Fetching resource: ", resource);
-                    },
-                    onValidityChange: (error, field) => {
-                        // Mudança no estado de validação de um campo
-                    },
-                    onError: (error) => {
-                        console.log("Form error: ", error);
-                        showError("Erro no formulário: " + error);
-                    }
-                }
-            });
+                });
+                
+                console.log("Formulário de cartão inicializado");
+            } catch (error) {
+                console.error("Erro ao criar formulário de cartão:", error);
+                showError("Erro ao criar formulário de cartão. Por favor, recarregue a página e tente novamente.");
+            }
         });
         
         // Cancelar adição de cartão

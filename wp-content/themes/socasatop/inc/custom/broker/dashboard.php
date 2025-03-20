@@ -109,7 +109,31 @@ function broker_dashboard_content($atts) {
         });
     ', 'before');
 
+    // Inicializar o dashboard
     ob_start();
+    
+    // Função para garantir que todas as URLs sejam HTTPS
+    $ensure_https = function($url) {
+        return str_replace('http://', 'https://', $url);
+    };
+    
+    // Certificar-se de que o nonce esteja disponível no JavaScript
+    echo '<script type="text/javascript">
+        var brokerDashboardData = {
+            ajax_url: "' . admin_url('admin-ajax.php') . '",
+            broker_dashboard_nonce: "' . wp_create_nonce('broker_dashboard_nonce') . '",
+            highlight_action_nonce: "' . wp_create_nonce('highlight_action_nonce') . '"
+        };
+        
+        // Copiar dados para o objeto site se existir
+        if (typeof site !== "undefined") {
+            site.broker_dashboard_nonce = brokerDashboardData.broker_dashboard_nonce;
+            site.highlight_action_nonce = brokerDashboardData.highlight_action_nonce;
+        } else {
+            var site = brokerDashboardData;
+        }
+    </script>';
+
     ?>
     <div class="broker-dashboard">
         <!-- Seção para o gráfico de métricas -->
@@ -174,22 +198,44 @@ function broker_dashboard_content($atts) {
             } else {
                 foreach ($properties as $property) {
                     $property_id = $property->ID;
-                    $title = $property->post_title;
-                    $permalink = get_permalink($property_id);
-                    $gallery = get_post_meta($property_id, 'immobile_gallery', true);
-                    $gallery_ids = $gallery ? explode(',', $gallery) : [];
-                    $featured_image = !empty($gallery_ids) ? wp_get_attachment_image_url($gallery_ids[0], 'thumbnail') : '';
+                    $property_title = $property->post_title;
+                    $property_permalink = get_permalink($property_id);
+                    
+                    // Meta informações
+                    $city = get_post_meta($property_id, 'city', true);
+                    $street = get_post_meta($property_id, 'street', true);
+                    $price = get_post_meta($property_id, 'price', true);
+                    $property_type = get_post_meta($property_id, 'property_type', true);
+                    
+                    // Status de destaque
                     $is_sponsored = get_post_meta($property_id, 'is_sponsored', true) === 'yes';
                     $highlight_paused = get_post_meta($property_id, 'highlight_paused', true) === 'yes';
                     
-                    // Formatação do título para URL amigável
-                    $title_slug = sanitize_title($title);
+                    // Obter a imagem em destaque
+                    $thumbnail = get_the_post_thumbnail_url($property_id, 'medium');
+                    
+                    // Se não encontrou thumbnail padrão, tenta obter da galeria
+                    if (!$thumbnail) {
+                        $gallery = get_post_meta($property_id, 'immobile_gallery', true);
+                        if ($gallery) {
+                            $gallery_ids = explode(',', $gallery);
+                            if (!empty($gallery_ids)) {
+                                $thumbnail = wp_get_attachment_image_url($gallery_ids[0], 'medium');
+                            }
+                        }
+                    }
+                    
+                    // Corrigir URL para HTTPS
+                    if ($thumbnail) {
+                        $thumbnail = $ensure_https($thumbnail);
+                    }
+                    
+                    // Se ainda não houver imagem, usar uma imagem padrão
+                    if (!$thumbnail) {
+                        $thumbnail = $ensure_https(get_stylesheet_directory_uri() . '/assets/images/no-image.jpg');
+                    }
                     
                     // Obter valor do imóvel
-                    $price = get_post_meta($property_id, 'amount', true);
-                    if (empty($price)) {
-                        $price = get_post_meta($property_id, 'price', true);
-                    }
                     $formatted_price = !empty($price) ? 'R$ ' . number_format((float) $price, 2, ',', '.') : 'Valor não informado';
                     
                     // Obter número de visualizações
@@ -215,28 +261,28 @@ function broker_dashboard_content($atts) {
                     }
                     
                     ?>
-                    <div class="property-item" data-property-id="<?php echo $property_id; ?>">
-                        <div class="property-select">
+                    <div class="property-item<?php echo $highlight_paused ? ' paused' : ''; ?>" data-property-id="<?php echo $property_id; ?>">
+                        <div class="property-checkbox-container">
                             <input type="checkbox" class="property-checkbox" data-id="<?php echo $property_id; ?>">
                         </div>
-                        <div class="property-thumbnail">
-                            <?php if ($featured_image) : ?>
-                                <img src="<?php echo $featured_image; ?>" alt="<?php echo $title; ?>">
+                        <div class="property-image">
+                            <?php if ($thumbnail) : ?>
+                                <img src="<?php echo esc_url($thumbnail); ?>" alt="<?php echo esc_attr($property_title); ?>">
                             <?php else : ?>
-                                <div class="no-thumbnail">Sem imagem</div>
+                                <div class="no-image">Sem imagem</div>
                             <?php endif; ?>
                         </div>
                         <div class="property-details">
                             <h3 class="property-title">
-                                <a href="<?php echo esc_url(get_permalink($property_id)); ?>" target="_blank">
-                                    <?php echo $title; ?>
+                                <a href="<?php echo esc_url($property_permalink); ?>" target="_blank">
+                                    <?php echo $property_title; ?>
                                 </a>
                                 <?php if ($is_sponsored && !$highlight_paused) : ?>
                                     <span class="sponsored-tag">Destaque</span>
                                 <?php endif; ?>
                             </h3>
                             <div class="property-meta">
-                                <?php if (!empty($price)): ?>
+                                <?php if (!empty($formatted_price)): ?>
                                 <span class="property-price"><?php echo $formatted_price; ?></span>
                                 <?php endif; ?>
                                 <span class="property-views"><i class="fas fa-eye"></i> <?php echo $views; ?> visualizações</span>
@@ -245,27 +291,27 @@ function broker_dashboard_content($atts) {
                             </div>
                         </div>
                         <div class="property-actions">
-                            <a href="<?php echo esc_url(add_query_arg('post', $property_id, site_url('/editar-imovel/'))); ?>" class="action-button edit-button" title="Editar">
+                            <a href="<?php echo home_url('/corretores/editar-imovel/?property_id=' . $property_id); ?>" class="action-button" title="Editar Imóvel">
                                 <i class="fas fa-edit"></i>
                             </a>
                             
-                            <?php if ($is_sponsored) : ?>
-                                <?php if ($highlight_paused) : ?>
-                                    <a href="/corretores/destacar-imovel/?immobile_id=<?php echo $property_id; ?>" class="action-button highlight-button" title="Reativar Destaque">
+                            <?php if ($is_sponsored) {
+                                if ($highlight_paused === 'yes') { ?>
+                                    <a href="<?php echo home_url('/corretores/destacar-imovel/?immobile_id=' . $property_id); ?>" class="action-button highlight-button" title="Reativar Destaque">
                                         <i class="fas fa-star"></i> <span class="button-label">Reativar</span>
                                     </a>
-                                <?php else : ?>
-                                    <button class="action-button pause-highlight-button" data-id="<?php echo $property_id; ?>" title="Pausar Destaque">
+                                <?php } else { ?>
+                                    <button data-id="<?php echo $property_id; ?>" class="action-button pause-highlight-button" title="Pausar Destaque">
                                         <i class="fas fa-pause"></i> <span class="button-label">Pausar</span>
                                     </button>
-                                <?php endif; ?>
-                            <?php else : ?>
-                                <a href="/corretores/destacar-imovel/?immobile_id=<?php echo $property_id; ?>" class="action-button highlight-button" title="Destacar">
+                                <?php }
+                            } else { ?>
+                                <a href="<?php echo home_url('/corretores/destacar-imovel/?immobile_id=' . $property_id); ?>" class="action-button highlight-button" title="Destacar Imóvel">
                                     <i class="fas fa-star"></i> <span class="button-label">Destacar</span>
                                 </a>
-                            <?php endif; ?>
+                            <?php } ?>
                             
-                            <button class="action-button delete-button" data-id="<?php echo $property_id; ?>" title="Excluir">
+                            <button data-id="<?php echo $property_id; ?>" class="action-button delete-button" title="Excluir Imóvel">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
@@ -379,11 +425,11 @@ function broker_dashboard_content($atts) {
             border-bottom: none;
         }
         
-        .property-select {
+        .property-checkbox-container {
             margin-right: 15px;
         }
         
-        .property-thumbnail {
+        .property-image {
             width: 80px;
             height: 80px;
             margin-right: 20px;
@@ -391,13 +437,13 @@ function broker_dashboard_content($atts) {
             overflow: hidden;
         }
         
-        .property-thumbnail img {
+        .property-image img {
             width: 100%;
             height: 100%;
             object-fit: cover;
         }
         
-        .no-thumbnail {
+        .no-image {
             width: 100%;
             height: 100%;
             display: flex;
@@ -570,7 +616,7 @@ function broker_dashboard_content($atts) {
                 align-items: flex-start;
             }
             
-            .property-thumbnail {
+            .property-image {
                 margin-bottom: 10px;
                 margin-right: 0;
                 width: 100%;
