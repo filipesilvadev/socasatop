@@ -514,15 +514,63 @@ add_action('wp_ajax_pause_immobile_highlight', 'pause_immobile_highlight');
 
 /**
  * Cancela uma assinatura no Mercado Pago
- * 
- * Esta é uma implementação simulada. Em produção, você usaria a API do Mercado Pago.
  */
 function cancel_mercadopago_subscription($subscription_id) {
-    // Simulação de sucesso (em produção, você faria a integração real com o Mercado Pago)
-    return array(
-        'success' => true,
-        'message' => 'Assinatura cancelada com sucesso'
-    );
+    // Obter configuração do Mercado Pago
+    $mp_config = get_mercadopago_config();
+    
+    if (empty($mp_config) || empty($mp_config['access_token'])) {
+        error_log('Token de acesso do Mercado Pago não configurado');
+        return array(
+            'success' => false,
+            'message' => 'Token de acesso não configurado'
+        );
+    }
+    
+    // Configurar a requisição cURL para cancelar a assinatura
+    $curl = curl_init();
+    
+    curl_setopt_array($curl, array(
+        CURLOPT_URL => "https://api.mercadopago.com/preapproval/{$subscription_id}",
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CUSTOMREQUEST => 'PUT',
+        CURLOPT_POSTFIELDS => json_encode(array('status' => 'cancelled')),
+        CURLOPT_HTTPHEADER => array(
+            'Authorization: Bearer ' . $mp_config['access_token'],
+            'Content-Type: application/json'
+        ),
+    ));
+    
+    $response = curl_exec($curl);
+    $http_status = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+    
+    if (curl_errno($curl)) {
+        error_log('Erro cURL ao cancelar assinatura: ' . curl_error($curl));
+        curl_close($curl);
+        return array(
+            'success' => false,
+            'message' => 'Erro na comunicação com o Mercado Pago: ' . curl_error($curl)
+        );
+    }
+    
+    curl_close($curl);
+    
+    $result = json_decode($response, true);
+    error_log('Resposta do Mercado Pago ao cancelar assinatura: ' . print_r($result, true));
+    
+    // Verificar se o cancelamento foi bem-sucedido (código 200 ou 201)
+    if ($http_status >= 200 && $http_status < 300) {
+        return array(
+            'success' => true,
+            'message' => 'Assinatura cancelada com sucesso'
+        );
+    } else {
+        $error_message = isset($result['message']) ? $result['message'] : 'Erro desconhecido';
+        return array(
+            'success' => false,
+            'message' => 'Erro ao cancelar assinatura: ' . $error_message
+        );
+    }
 }
 
 /**

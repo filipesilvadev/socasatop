@@ -65,6 +65,64 @@ if (file_exists(get_stylesheet_directory() . '/inc/custom/avisos/diagnostico.php
     error_log('ERRO: Arquivo diagnostico.php não encontrado');
 }
 
+// Corrigir formulários do Elementor
+function fix_elementor_form_errors() {
+    // Registrar script vazio para ser usado como dependência
+    wp_register_script('elementor-form-fix', '', [], null, true);
+    wp_enqueue_script('elementor-form-fix');
+    
+    $script = "
+    jQuery(document).ready(function($) {
+        // Corrigir problema com o botão de contratação de assessoria
+        $('.contratar-assessoria').on('click', function(e) {
+            e.preventDefault();
+            var target = $(this).attr('href') || '#';
+            
+            if (target === '#' || target === '') {
+                // Se não houver um link válido, tenta enviar o formulário mais próximo
+                var $form = $(this).closest('form');
+                if ($form.length) {
+                    $form.submit();
+                }
+            } else {
+                window.location.href = target;
+            }
+        });
+        
+        // Corrigir erros genéricos dos formulários do Elementor
+        $(document).on('submit', '.elementor-form', function(e) {
+            // Remover mensagens de erro antigas
+            $('.elementor-message-danger, .elementor-message-error').remove();
+            $('.elementor-form-display-error').remove();
+            
+            // Garantir que o botão de envio não fique desabilitado após o envio
+            setTimeout(function() {
+                $('.elementor-button').prop('disabled', false);
+            }, 1000);
+        });
+        
+        // Corrigir o erro específico da página de publicação otimizada
+        if ($('.elementor-widget-form').length) {
+            // Garantir que o formulário tenha um action definido
+            $('.elementor-widget-form form').each(function() {
+                if (!$(this).attr('action')) {
+                    $(this).attr('action', window.location.href);
+                }
+            });
+            
+            // Corrigir botão específico na publicação otimizada
+            $('.publicacao-otimizada button').on('click', function(e) {
+                e.preventDefault();
+                $(this).closest('form').submit();
+            });
+        }
+    });
+    ";
+    
+    wp_add_inline_script('elementor-form-fix', $script);
+}
+add_action('wp_enqueue_scripts', 'fix_elementor_form_errors', 20);
+
 include_once "inc/filter/settings.php";
 include_once "inc/ajax.php";
 
@@ -1954,3 +2012,9 @@ function display_test_whatsapp_page() {
 /**
  * FIM DO MENU DE TESTE DO WHATSAPP
  */
+
+ function custom_logout_url() {
+  return wp_logout_url('https://socasatop.com.br');
+}
+add_shortcode('logout_link', 'custom_logout_url');
+

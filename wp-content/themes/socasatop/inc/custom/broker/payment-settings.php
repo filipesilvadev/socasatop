@@ -43,12 +43,150 @@ function render_payment_settings_page() {
     wp_enqueue_script('mercadopago-sdk', 'https://sdk.mercadopago.com/js/v2', array(), null, true);
     wp_enqueue_script('payment-settings-js', get_template_directory_uri() . '/inc/custom/broker/assets/js/payment-settings.js', array('jquery', 'mercadopago-sdk'), time(), true);
     
+    // Estilo personalizado para o formulário de pagamento
+    echo '<style>
+        #card-form-container {
+            padding: 25px;
+            background: #ffffff;
+            border-radius: 8px;
+            margin-top: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-width: 600px;
+        }
+        #card-form {
+            display: block !important;
+            width: 100%;
+        }
+        .mp-form-row {
+            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .mp-col-12 {
+            width: 100%;
+            padding: 0 5px;
+        }
+        .mp-col-6 {
+            width: 50%;
+            padding: 0 5px;
+        }
+        /* Estilos para iframes do Mercado Pago */
+        #cardNumber, #expirationDate, #securityCode {
+            height: 40px;
+            background-color: #FFFFFF;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            display: block;
+            width: 100%;
+            padding: 0;
+            overflow: hidden;
+        }
+        .mp-input-container {
+            height: 40px !important;
+            min-height: 40px !important;
+            position: relative;
+        }
+        iframe {
+            border: none !important;
+            height: 100% !important;
+            width: 100% !important;
+            min-height: 40px !important;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
+        /* Input styles */
+        .form-control {
+            display: block;
+            width: 100%;
+            padding: 0.375rem 0.75rem;
+            font-size: 1rem;
+            line-height: 1.5;
+            color: #495057;
+            background-color: #fff;
+            background-clip: padding-box;
+            border: 1px solid #ced4da;
+            border-radius: 0.25rem;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+            height: 38px;
+        }
+        #cardholderName, #identificationNumber, #issuer {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+        }
+        #result-message {
+            margin-bottom: 20px;
+        }
+        .error-message {
+            color: #dc3545;
+            padding: 12px;
+            background: #f8d7da;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            border: 1px solid #f5c6cb;
+        }
+        .success-message {
+            color: #28a745;
+            padding: 12px;
+            background: #d4edda;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            border: 1px solid #c3e6cb;
+        }
+        .mp-form-actions {
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-between;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+        }
+        .btn {
+            display: inline-block;
+            font-weight: 400;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: middle;
+            user-select: none;
+            border: 1px solid transparent;
+            padding: 0.375rem 0.75rem;
+            font-size: 1rem;
+            line-height: 1.5;
+            border-radius: 0.25rem;
+            transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        }
+        .btn-primary {
+            color: #fff;
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+        .btn-secondary {
+            color: #fff;
+            background-color: #6c757d;
+            border-color: #6c757d;
+        }
+        @media (max-width: 576px) {
+            .mp-col-6 {
+                width: 100%;
+                margin-bottom: 15px;
+            }
+        }
+    </style>';
+    
     // Passar variáveis para o JavaScript
     wp_localize_script('payment-settings-js', 'payment_settings', array(
         'ajax_url' => admin_url('admin-ajax.php'),
         'nonce' => wp_create_nonce('payment_settings_nonce'),
         'public_key' => $mp_config['public_key'],
         'user_id' => $user_id,
+        'user_email' => wp_get_current_user()->user_email,
         'is_sandbox' => $mp_config['sandbox'],
         'site_url' => site_url()
     ));
@@ -110,54 +248,58 @@ function render_payment_settings_page() {
                 </button>
                 
                 <div id="card-form-container" style="display: none;">
-                    <form id="card-form" class="mp-form">
+                    <div id="result-message"></div>
+                    
+                    <form id="card-form">
                         <div class="mp-form-row">
                             <div class="mp-col-12">
-                                <label>Nome no cartão</label>
+                                <label for="cardholderName">Nome no cartão</label>
                                 <input type="text" id="cardholderName" placeholder="Nome como está no cartão" />
                             </div>
                         </div>
                         
                         <div class="mp-form-row">
                             <div class="mp-col-12">
-                                <label>Número do cartão</label>
-                                <div id="cardNumberContainer" class="mp-input-container"></div>
+                                <label for="cardNumber">Número do cartão</label>
+                                <div id="cardNumber" class="mp-input-container"></div>
                             </div>
                         </div>
                         
                         <div class="mp-form-row">
                             <div class="mp-col-6">
-                                <label>Data de validade</label>
-                                <div id="expirationDateContainer" class="mp-input-container"></div>
+                                <label for="expirationDate">Data de validade</label>
+                                <div id="expirationDate" class="mp-input-container"></div>
                             </div>
                             <div class="mp-col-6">
-                                <label>Código de segurança</label>
-                                <div id="securityCodeContainer" class="mp-input-container"></div>
+                                <label for="securityCode">Código de segurança</label>
+                                <div id="securityCode" class="mp-input-container"></div>
                             </div>
                         </div>
                         
                         <div class="mp-form-row">
                             <div class="mp-col-12">
-                                <label>CPF</label>
+                                <label for="identificationNumber">CPF</label>
                                 <input type="text" id="identificationNumber" placeholder="Digite seu CPF" />
-                                <input type="hidden" id="identificationType" value="CPF" />
+                                <select id="identificationType" style="display: none;">
+                                    <option value="CPF" selected>CPF</option>
+                                </select>
                             </div>
                         </div>
                         
                         <div class="mp-form-row">
                             <div class="mp-col-12">
-                                <label>Banco emissor</label>
+                                <label for="issuer">Banco emissor</label>
                                 <select id="issuer" class="mp-input-select"></select>
-                                <input type="hidden" id="installments" value="1" />
+                                <select id="installments" style="display: none;">
+                                    <option value="1" selected>1 parcela</option>
+                                </select>
                             </div>
                         </div>
 
                         <div class="mp-form-actions">
                             <button type="button" id="cancel-card-form" class="button button-secondary">Cancelar</button>
-                            <button type="submit" id="save-card" class="button button-primary">Salvar cartão</button>
+                            <button type="submit" id="form-checkout__submit" class="button button-primary">Salvar cartão</button>
                         </div>
-                        
-                        <div id="result-message"></div>
                     </form>
                 </div>
             </div>
@@ -613,53 +755,25 @@ function get_card_brand_name($brand) {
  * Obter o logo da bandeira do cartão
  */
 function get_card_brand_logo($brand) {
-    $default_logo = get_template_directory_uri() . '/inc/custom/broker/assets/img/credit-card.png';
+    // Normalizar o nome da bandeira
+    $brand = strtolower($brand);
     
-    // Verificar se o diretório de imagens existe
-    $img_dir = get_template_directory() . '/inc/custom/broker/assets/img';
-    if (!file_exists($img_dir)) {
-        // Tentar criar o diretório se não existir
-        if (!mkdir($img_dir, 0755, true)) {
-            return $default_logo;
-        }
-    }
+    // Caminho para o diretório de imagens de bandeiras de cartão
+    $base_url = get_template_directory_uri() . '/inc/custom/broker/assets/images/card-brands/';
     
-    $brand_logos = array(
-        'visa' => 'visa.png',
-        'mastercard' => 'mastercard.png',
-        'amex' => 'amex.png',
-        'elo' => 'elo.png',
-        'hipercard' => 'hipercard.png',
-        'discover' => 'discover.png',
-        'diners' => 'diners.png',
-        'jcb' => 'jcb.png',
-        'aura' => 'aura.png',
-        'hiper' => 'hiper.png'
+    // Lista de bandeiras disponíveis
+    $available_brands = array(
+        'visa' => 'visa.svg',
+        'mastercard' => 'mastercard.svg'
     );
     
-    // Verificar se a marca tem um logo definido
-    if (isset($brand_logos[$brand])) {
-        $logo_file = $img_dir . '/' . $brand_logos[$brand];
-        
-        // Verificar se o arquivo existe
-        if (file_exists($logo_file)) {
-            return get_template_directory_uri() . '/inc/custom/broker/assets/img/' . $brand_logos[$brand];
-        }
-        
-        // Se chegou aqui, o arquivo não existe
-        // Vamos criar um arquivo básico para a marca
-        $logo_url = get_template_directory_uri() . '/inc/custom/broker/assets/img/' . $brand_logos[$brand];
-        
-        // Criar um placeholder para a marca
-        create_card_brand_placeholder($brand, $img_dir . '/' . $brand_logos[$brand]);
-        
-        if (file_exists($logo_file)) {
-            return $logo_url;
-        }
+    // Verificar se a bandeira está disponível
+    if (isset($available_brands[$brand])) {
+        return $base_url . $available_brands[$brand];
     }
     
-    // Se chegou aqui, não conseguiu encontrar ou criar um logo
-    return $default_logo;
+    // Retorna a imagem genérica se a bandeira não for encontrada
+    return $base_url . 'generic-card.svg';
 }
 
 /**
@@ -1335,161 +1449,153 @@ function render_mercadopago_settings_page() {
  * Processa o salvamento de cartão em ambiente de produção
  */
 function process_save_card() {
-    check_ajax_referer('payment_settings_nonce', 'nonce');
-    
     if (!is_user_logged_in()) {
-        error_log("Tentativa de salvar cartão sem estar autenticado");
         wp_send_json_error(['message' => 'Usuário não autenticado']);
         return;
     }
-    
-    $user_id = isset($_POST['user_id']) ? intval($_POST['user_id']) : get_current_user_id();
-    $token = isset($_POST['token']) ? sanitize_text_field($_POST['token']) : '';
-    
-    if (empty($token)) {
-        error_log("Tentativa de salvar cartão sem token");
+
+    // Verificar nonce
+    if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'payment_settings_nonce')) {
+        wp_send_json_error(['message' => 'Falha na validação de segurança']);
+        return;
+    }
+
+    // Verificar token
+    if (!isset($_POST['token']) || empty($_POST['token'])) {
         wp_send_json_error(['message' => 'Token do cartão não fornecido']);
         return;
     }
-    
-    error_log("Iniciando processamento de token do cartão: " . $token);
-    
-    // Verificar se o arquivo mercadopago.php existe
-    $mercadopago_file = get_stylesheet_directory() . '/inc/custom/immobile/mercadopago.php';
-    if (!file_exists($mercadopago_file)) {
-        error_log("Arquivo mercadopago.php não encontrado em: " . $mercadopago_file);
-        wp_send_json_error(['message' => 'Configuração do módulo de pagamento não encontrada']);
-        return;
-    }
-    
-    require_once $mercadopago_file;
-    
+
+    $token = sanitize_text_field($_POST['token']);
+    $user_id = get_current_user_id();
+
     try {
-        // Verificar se a classe existe
-        if (!class_exists('Immobile_Payment')) {
-            error_log("Classe Immobile_Payment não encontrada");
-            throw new Exception('Classe de pagamento não encontrada');
-        }
-        
-        // Obter informações do cartão a partir do token
-        $mp_payment = new Immobile_Payment();
+        // Obter configurações do Mercado Pago
         $mp_config = get_mercadopago_config();
         
-        error_log("Configuração do Mercado Pago: " . json_encode([
-            'sandbox' => $mp_config['sandbox'],
-            'token_prefix' => substr($mp_config['access_token'], 0, 10),
-            'public_key_prefix' => substr($mp_config['public_key'], 0, 10)
-        ]));
-        
         if (empty($mp_config['access_token'])) {
-            error_log("Token de acesso do Mercado Pago não configurado");
-            throw new Exception('Token de acesso do Mercado Pago não configurado');
+            wp_send_json_error(['message' => 'Configuração do Mercado Pago não encontrada']);
+            return;
+        }
+
+        // Inicializar SDK do Mercado Pago
+        require_once get_template_directory() . '/inc/custom/broker/vendor/autoload.php';
+        \MercadoPago\SDK::setAccessToken($mp_config['access_token']);
+        
+        // Criar cliente (se não existir) ou obter o existente
+        $customer = get_or_create_mercadopago_customer($user_id);
+        
+        if (!$customer) {
+            wp_send_json_error(['message' => 'Erro ao criar ou obter cliente no Mercado Pago']);
+            return;
         }
         
-        // Em ambiente de testes, podemos simular os dados do cartão
-        if ($mp_config['sandbox'] && strpos($token, 'TEST-') === 0) {
-            error_log("Ambiente de teste detectado com token válido: " . $token);
+        // Adicionar o cartão ao cliente
+        $card = new \MercadoPago\Card();
+        $card->token = $token;
+        $card->customer_id = $customer->id;
+        
+        // Salvar o cartão e capturar possíveis erros
+        $card_save_result = $card->save();
+        
+        if (!$card_save_result) {
+            $error_message = 'Erro ao salvar cartão';
             
-            // Criar cartão simulado para ambiente de teste
-            $card_data = [
-                'payment_method' => [
-                    'id' => 'master',
-                    'name' => 'Mastercard Teste'
-                ],
-                'last_four_digits' => '1234',
-                'expiration_month' => '12',
-                'expiration_year' => '2030'
-            ];
-        } else {
-            // Fazer uma requisição para a API do Mercado Pago para obter os detalhes do cartão
-            error_log("Fazendo requisição para API do Mercado Pago para obter detalhes do cartão");
-            $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, "https://api.mercadopago.com/v1/payment_methods/card_tokens/" . $token);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-                "Authorization: Bearer " . $mp_config['access_token'],
-            ));
-            
-            $response = curl_exec($ch);
-            $http_status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $err = curl_error($ch);
-            curl_close($ch);
-            
-            if ($err) {
-                error_log("Erro de CURL ao obter informações do cartão: " . $err);
-                throw new Exception('Erro ao obter informações do cartão: ' . $err);
+            if (property_exists($card, 'error') && $card->error) {
+                if (is_string($card->error)) {
+                    $error_message .= ': ' . $card->error;
+                } elseif (is_object($card->error) && property_exists($card->error, 'message')) {
+                    $error_message .= ': ' . $card->error->message;
+                }
+                
+                error_log('Erro Mercado Pago (objeto): ' . print_r($card->error, true));
             }
             
-            if ($http_status != 200) {
-                error_log("Erro na API do Mercado Pago: HTTP status " . $http_status . ", Resposta: " . $response);
-                throw new Exception('Erro na API do Mercado Pago: ' . $http_status);
-            }
+            error_log('Resultado da operação de salvamento: ' . print_r($card_save_result, true));
+            error_log('Detalhes do objeto card: ' . print_r($card, true));
             
-            $card_data = json_decode($response, true);
-            
-            if (empty($card_data)) {
-                error_log("Resposta vazia da API do Mercado Pago");
-                throw new Exception('Resposta vazia da API do Mercado Pago');
-            }
-            
-            if (isset($card_data['error'])) {
-                error_log("Erro retornado pela API do Mercado Pago: " . json_encode($card_data));
-                throw new Exception('Erro retornado pela API: ' . $card_data['error']);
-            }
-            
-            // Verificar se temos os dados necessários do cartão
-            if (!isset($card_data['payment_method']) || !isset($card_data['last_four_digits'])) {
-                error_log("Dados do cartão incompletos na resposta da API: " . json_encode($card_data));
-                throw new Exception('Dados do cartão incompletos na resposta da API');
-            }
+            wp_send_json_error(['message' => $error_message]);
+            return;
         }
         
-        // Verificar campos de expiração
-        $expiry_month = isset($card_data['expiration_month']) ? $card_data['expiration_month'] : '';
-        $expiry_year = isset($card_data['expiration_year']) ? $card_data['expiration_year'] : '';
+        // Verificar se o cartão tem um ID
+        if (!property_exists($card, 'id') || empty($card->id)) {
+            wp_send_json_error(['message' => 'Cartão salvo, mas sem ID retornado']);
+            return;
+        }
         
-        // Pegar o nome da bandeira do cartão
-        $brand = isset($card_data['payment_method']['id']) ? $card_data['payment_method']['id'] : '';
-        $brand_name = isset($card_data['payment_method']['name']) ? $card_data['payment_method']['name'] : $brand;
+        // Registrar metadados do cartão no WordPress
+        $card_data = [
+            'id' => $card->id,
+            'last_four_digits' => $card->last_four_digits,
+            'expiration_month' => $card->expiration_month,
+            'expiration_year' => $card->expiration_year,
+            'cardholder' => [
+                'name' => $card->cardholder->name,
+                'identification' => [
+                    'type' => $card->cardholder->identification->type,
+                    'number' => $card->cardholder->identification->number,
+                ]
+            ],
+            'payment_method' => [
+                'id' => $card->payment_method->id,
+                'name' => $card->payment_method->name,
+            ],
+            'security_code' => [
+                'length' => $card->security_code->length,
+                'card_location' => $card->security_code->card_location,
+            ],
+            'date_created' => $card->date_created,
+            'date_last_updated' => $card->date_last_updated,
+            'customer_id' => $card->customer_id,
+            'user_id' => $user_id,
+            'issuer' => [
+                'id' => $card->issuer->id,
+                'name' => $card->issuer->name,
+            ],
+            'first_six_digits' => $card->first_six_digits,
+        ];
         
-        // Salvar o cartão no usuário
-        $saved_cards = get_user_meta($user_id, 'mercadopago_cards', true);
+        // Salvar os dados do cartão como metadados do usuário
+        $saved_cards = get_user_meta($user_id, '_saved_cards', true);
+        
         if (empty($saved_cards) || !is_array($saved_cards)) {
-            $saved_cards = array();
+            $saved_cards = [];
         }
         
-        $new_card = array(
-            'id' => 'card_' . md5(time() . rand(1000, 9999)),
-            'token' => $token,
-            'brand' => $brand_name,
-            'last_four' => $card_data['last_four_digits'],
-            'expiry_month' => $expiry_month,
-            'expiry_year' => $expiry_year,
-            'created_at' => current_time('mysql'),
-            'is_test' => $mp_config['sandbox'] ? true : false
-        );
+        // Adicionar o novo cartão e definir como padrão se for o primeiro
+        $is_default = count($saved_cards) === 0;
+        $card_data['is_default'] = $is_default;
+        $saved_cards[] = $card_data;
         
-        error_log("Salvando novo cartão: " . json_encode($new_card));
+        // Atualizar a lista de cartões salvos
+        update_user_meta($user_id, '_saved_cards', $saved_cards);
         
-        $saved_cards[] = $new_card;
-        update_user_meta($user_id, 'mercadopago_cards', $saved_cards);
+        // Registrar log de atividade
+        $brand_name = isset($card_data['payment_method']['name']) ? $card_data['payment_method']['name'] : 'Desconhecido';
+        $card_info = "{$brand_name} terminado em {$card_data['last_four_digits']}";
         
-        // Se for o primeiro cartão, definir como padrão
-        if (count($saved_cards) === 1) {
-            update_user_meta($user_id, 'default_payment_card', $new_card['id']);
-        }
+        $activity_log = [
+            'action' => 'add_card',
+            'timestamp' => current_time('mysql'),
+            'card_id' => $card_data['id'],
+            'card_info' => $card_info,
+            'is_default' => $is_default,
+        ];
+        add_payment_activity_log($user_id, $activity_log);
         
-        wp_send_json_success(array(
+        // Enviar resposta de sucesso
+        wp_send_json_success([
             'message' => 'Cartão salvo com sucesso',
-            'card' => $new_card
-        ));
+            'card_id' => $card_data['id'],
+            'is_default' => $is_default,
+        ]);
         
     } catch (Exception $e) {
-        error_log('Erro ao processar cartão: ' . $e->getMessage());
+        error_log('Exceção ao salvar cartão: ' . $e->getMessage());
         wp_send_json_error(['message' => 'Erro ao processar cartão: ' . $e->getMessage()]);
     }
 }
-add_action('wp_ajax_save_card', 'process_save_card');
 
 /**
  * Obtém as transações recentes do usuário
@@ -1578,210 +1684,463 @@ add_action('wp_ajax_add_simulated_card', 'add_simulated_card_data');
  * Adiciona estilos CSS para o formulário de pagamento
  */
 function payment_settings_styles() {
-    if (!is_page('configuracoes-pagamento')) {
-        return;
-    }
-    
-    // Estilos inline
     ?>
     <style>
-        .payment-settings-container {
+        /* Estilos gerais */
+        #payment-settings-page {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
         }
-
-        .payment-settings-section {
-            margin-bottom: 40px;
+        
+        .card-list-container {
+            margin-bottom: 30px;
         }
-
-        /* Estilos para o formulário do MercadoPago */
-        .mp-form {
-            background: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-top: 20px;
-        }
-
-        .mp-form-row {
-            margin-bottom: 20px;
-        }
-
-        .mp-col-12 {
-            width: 100%;
-        }
-
-        .mp-col-6 {
-            width: 48%;
-            display: inline-block;
-            margin-right: 2%;
-        }
-
-        .mp-col-6:last-child {
-            margin-right: 0;
-        }
-
-        .mp-input-container {
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 8px;
-            background: #fff;
-            min-height: 40px;
-        }
-
-        .mp-form label {
-            display: block;
-            margin-bottom: 8px;
+        
+        .card-list-container h3 {
+            margin-bottom: 15px;
+            font-size: 1.2em;
             color: #333;
-            font-weight: 500;
         }
-
-        .mp-form input[type="text"],
-        .mp-form select {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-
-        .mp-form select {
-            height: 40px;
-            background: #fff;
-        }
-
-        .payment-submit-button {
-            width: 100%;
-            padding: 12px 24px;
-            background: #0056b3;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-        }
-
-        .payment-submit-button:hover {
-            background: #004494;
-        }
-
-        .payment-submit-button:disabled {
-            background: #cccccc;
-            cursor: not-allowed;
-        }
-
-        .error-message {
-            color: #dc3545;
-            padding: 10px;
-            margin-top: 10px;
-            border: 1px solid #dc3545;
-            border-radius: 4px;
-            background: #fff;
-        }
-
-        /* Estilos para cartões salvos */
-        .cards-container {
+        
+        .card-list {
             display: flex;
             flex-wrap: wrap;
             gap: 20px;
-            margin-top: 20px;
+            margin-bottom: 20px;
         }
-
+        
         .card-item {
-            background: #fff;
-            padding: 20px;
+            border: 1px solid #ddd;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 15px;
+            width: 300px;
+            background-color: #f9f9f9;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
             position: relative;
-            width: calc(33% - 20px);
         }
-
+        
         .card-item.default {
-            border: 2px solid #0056b3;
+            border-color: #17a2b8;
+            background-color: #f0f9fb;
         }
-
+        
         .default-badge {
             position: absolute;
-            top: 10px;
-            right: 10px;
-            background: #0056b3;
+            top: -10px;
+            right: -10px;
+            background-color: #17a2b8;
             color: white;
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 12px;
-        }
-
-        .card-brand {
-            margin-bottom: 10px;
-        }
-
-        .card-brand img {
-            height: 30px;
-            width: auto;
-        }
-
-        .card-number {
-            font-size: 18px;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-
-        .card-expiry {
-            color: #666;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             font-size: 14px;
         }
-
-        .card-actions {
-            margin-top: 15px;
+        
+        .card-brand {
             display: flex;
-            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
         }
-
-        .card-actions button {
-            padding: 8px 16px;
-            border: none;
+        
+        .card-brand img {
+            max-height: 30px;
+            margin-right: 10px;
+        }
+        
+        .card-number {
+            font-size: 1.1em;
+            margin-bottom: 5px;
+        }
+        
+        .card-expiry {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+        }
+        
+        .card-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+        }
+        
+        .button {
+            padding: 8px 12px;
             border-radius: 4px;
             cursor: pointer;
             font-size: 14px;
-            transition: background-color 0.3s ease;
+            text-align: center;
+            text-decoration: none;
+            border: 1px solid transparent;
+            transition: all 0.2s ease;
         }
-
-        .set-default-card {
-            background: #28a745;
+        
+        .button-primary {
+            background-color: #0073aa;
+            color: white;
+            border-color: #0073aa;
+        }
+        
+        .button-primary:hover {
+            background-color: #005177;
+            border-color: #005177;
+        }
+        
+        .button-secondary {
+            background-color: white;
+            border-color: #ccc;
+            color: #555;
+        }
+        
+        .button-secondary:hover {
+            background-color: #f5f5f5;
+            border-color: #aaa;
+        }
+        
+        .button-danger {
+            background-color: white;
+            border-color: #dc3545;
+            color: #dc3545;
+        }
+        
+        .button-danger:hover {
+            background-color: #dc3545;
             color: white;
         }
-
-        .delete-card {
-            background: #dc3545;
-            color: white;
+        
+        .success-message,
+        .error-message,
+        .info-message,
+        .processing-message {
+            padding: 10px 15px;
+            border-radius: 4px;
+            margin-bottom: 15px;
         }
-
-        .set-default-card:hover {
-            background: #218838;
+        
+        .success-message {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
         }
-
-        .delete-card:hover {
-            background: #c82333;
+        
+        .error-message {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
         }
-
-        @media (max-width: 768px) {
+        
+        .info-message {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .processing-message {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+        
+        /* Estilos do formulário de cartão */
+        #card-form-container {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        #card-form {
+            max-width: 600px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .mp-form-row {
+            display: flex;
+            flex-wrap: wrap;
+            margin-right: -10px;
+            margin-left: -10px;
+        }
+        
+        .mp-col-12 {
+            flex: 0 0 100%;
+            max-width: 100%;
+            padding-right: 10px;
+            padding-left: 10px;
+        }
+        
+        .mp-col-6 {
+            flex: 0 0 50%;
+            max-width: 50%;
+            padding-right: 10px;
+            padding-left: 10px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .form-control {
+            display: block;
+            width: 100%;
+            padding: 0.375rem 0.75rem;
+            font-size: 1rem;
+            line-height: 1.5;
+            color: #495057;
+            background-color: #fff;
+            background-clip: padding-box;
+            border: 1px solid #ced4da;
+            border-radius: 0.25rem;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+            height: 38px;
+        }
+        
+        .form-control:focus {
+            color: #495057;
+            background-color: #fff;
+            border-color: #80bdff;
+            outline: 0;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+        
+        .mp-form-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        
+        .btn {
+            display: inline-block;
+            font-weight: 400;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: middle;
+            user-select: none;
+            border: 1px solid transparent;
+            padding: 0.375rem 0.75rem;
+            font-size: 1rem;
+            line-height: 1.5;
+            border-radius: 0.25rem;
+            transition: all 0.15s ease-in-out;
+            cursor: pointer;
+        }
+        
+        .btn-primary {
+            color: #fff;
+            background-color: #0073aa;
+            border-color: #0073aa;
+        }
+        
+        .btn-primary:hover {
+            color: #fff;
+            background-color: #005177;
+            border-color: #005177;
+        }
+        
+        .btn-secondary {
+            color: #333;
+            background-color: #f8f9fa;
+            border-color: #ddd;
+        }
+        
+        .btn-secondary:hover {
+            color: #333;
+            background-color: #e2e6ea;
+            border-color: #dae0e5;
+        }
+        
+        #add-new-card-button {
+            margin-top: 20px;
+        }
+        
+        #card-form-container {
+            display: none;
+        }
+        
+        /* Correções para os campos de iframe do Mercado Pago */
+        .mp-input-container {
+            height: 38px;
+            position: relative;
+            padding: 0;
+            border: 1px solid #ced4da;
+            border-radius: 0.25rem;
+            background-color: white;
+            overflow: hidden;
+        }
+        
+        .mp-input-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        /* Especificidades para campos iframe do Mercado Pago */
+        #cardNumber.mp-input-container {
+            height: 38px;
+        }
+        
+        #expirationDate.mp-input-container {
+            height: 38px;
+        }
+        
+        #securityCode.mp-input-container {
+            height: 38px;
+        }
+        
+        /* Ajustes para melhorar a responsividade */
+        @media (max-width: 767px) {
             .mp-col-6 {
+                flex: 0 0 100%;
+                max-width: 100%;
+            }
+            
+            .card-item {
                 width: 100%;
-                margin-right: 0;
-                margin-bottom: 15px;
             }
-
-            .cards-container {
+            
+            .card-actions {
                 flex-direction: column;
+                gap: 10px;
             }
+            
+            .button {
+                width: 100%;
+            }
+        }
+        
+        /* Estilos para a seção de assinaturas */
+        .subscription-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .subscription-item {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            width: 300px;
+            background-color: #f9f9f9;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .subscription-status {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.85em;
+            margin-bottom: 10px;
+        }
+        
+        .status-active {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .status-paused {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        
+        .status-cancelled {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        .subscription-details {
+            margin-bottom: 15px;
+        }
+        
+        .subscription-details p {
+            margin: 5px 0;
+        }
+        
+        .subscription-amount {
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .subscription-date {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .subscription-actions {
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        /* Estilos para a seção de transações */
+        .transaction-list {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .transaction-list th,
+        .transaction-list td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .transaction-list th {
+            background-color: #f5f5f5;
+            font-weight: 500;
+        }
+        
+        .transaction-list tr:hover {
+            background-color: #f9f9f9;
+        }
+        
+        .transaction-amount {
+            font-weight: 500;
+        }
+        
+        .transaction-date {
+            color: #666;
+        }
+        
+        .transaction-status {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.85em;
+        }
+        
+        .transaction-approved {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .transaction-pending {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        
+        .transaction-rejected {
+            background-color: #f8d7da;
+            color: #721c24;
         }
     </style>
     <?php
 }
-add_action('wp_head', 'payment_settings_styles');
 
 /**
  * Inicializa as configurações de pagamento
@@ -2171,4 +2530,116 @@ function render_mercadopago_status_widget() {
     }
     </style>
     <?php
+}add_action('wp_head', 'payment_settings_styles');
+add_action('wp_ajax_save_card', 'process_save_card');
+
+/**
+ * Obter cliente existente ou criar um novo no Mercado Pago
+ */
+function get_or_create_mercadopago_customer($user_id) {
+    if (!$user_id) {
+        return false;
+    }
+    
+    $user = get_userdata($user_id);
+    if (!$user) {
+        return false;
+    }
+    
+    // Verificar se já temos o customer_id salvo
+    $mp_customer_id = get_user_meta($user_id, '_mercadopago_customer_id', true);
+    
+    try {
+        // Se já temos o customer_id, tentar obter o cliente
+        if (!empty($mp_customer_id)) {
+            $customer = new \MercadoPago\Customer();
+            $customer->id = $mp_customer_id;
+            
+            try {
+                // Tentar obter o cliente existente
+                $found_customers = $customer->search(['id' => $mp_customer_id]);
+                
+                if ($found_customers && isset($found_customers['results']) && count($found_customers['results']) > 0) {
+                    $customer = new \MercadoPago\Customer();
+                    $customer->id = $mp_customer_id;
+                    error_log("Cliente Mercado Pago encontrado: $mp_customer_id");
+                    return $customer;
+                }
+            } catch (Exception $e) {
+                error_log("Erro ao buscar cliente Mercado Pago: " . $e->getMessage());
+                // Vamos tentar criar um novo
+            }
+        }
+        
+        // Criar um novo cliente
+        $customer = new \MercadoPago\Customer();
+        $customer->email = $user->user_email;
+        $customer->first_name = $user->first_name;
+        $customer->last_name = $user->last_name;
+        $customer->description = "Cliente WordPress ID: $user_id";
+        
+        // Preencher dados adicionais do cliente, se disponíveis
+        $phone = get_user_meta($user_id, 'phone', true);
+        if (!empty($phone)) {
+            $customer->phone = ['area_code' => '', 'number' => preg_replace('/\D/', '', $phone)];
+        }
+        
+        $cpf = get_user_meta($user_id, 'cpf', true);
+        if (!empty($cpf)) {
+            $customer->identification = ['type' => 'CPF', 'number' => preg_replace('/\D/', '', $cpf)];
+        }
+        
+        $address = [
+            'street_name' => get_user_meta($user_id, 'street', true),
+            'street_number' => get_user_meta($user_id, 'number', true),
+            'zip_code' => get_user_meta($user_id, 'postcode', true),
+            'city' => get_user_meta($user_id, 'city', true),
+            'state' => get_user_meta($user_id, 'state', true),
+            'country' => 'BR'
+        ];
+        
+        if (!empty($address['street_name']) && !empty($address['zip_code'])) {
+            $customer->address = $address;
+        }
+        
+        // Salvar o cliente
+        if ($customer->save()) {
+            // Armazenar o ID do cliente para uso futuro
+            update_user_meta($user_id, '_mercadopago_customer_id', $customer->id);
+            error_log("Cliente Mercado Pago criado: " . $customer->id);
+            return $customer;
+        } else {
+            if (property_exists($customer, 'error')) {
+                error_log("Erro ao criar cliente Mercado Pago: " . print_r($customer->error, true));
+            }
+            return false;
+        }
+    } catch (Exception $e) {
+        error_log("Exceção ao criar/obter cliente Mercado Pago: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Registrar log de atividade de pagamento
+ */
+function add_payment_activity_log($user_id, $activity) {
+    if (!$user_id || !is_array($activity)) {
+        return false;
+    }
+    
+    $logs = get_user_meta($user_id, '_payment_activity_log', true);
+    if (!is_array($logs)) {
+        $logs = [];
+    }
+    
+    // Adicionar a nova atividade no início do array
+    array_unshift($logs, $activity);
+    
+    // Limitar o tamanho do log para evitar metadados muito grandes
+    if (count($logs) > 100) {
+        $logs = array_slice($logs, 0, 100);
+    }
+    
+    return update_user_meta($user_id, '_payment_activity_log', $logs);
 }

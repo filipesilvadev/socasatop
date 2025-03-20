@@ -224,7 +224,7 @@ function render_highlight_payment_form($immobile_id) {
     $default_card_id = get_user_meta($user_id, 'default_payment_card', true);
     
     // Preço mensal do destaque
-    $monthly_price = 49.90;
+    $monthly_price = 99.00;
     
     // Enfileirar scripts necessários
     wp_enqueue_script('mercadopago-sdk', 'https://sdk.mercadopago.com/js/v2', array(), null, true);
@@ -262,18 +262,40 @@ function render_highlight_payment_form($immobile_id) {
     ?>
     <div class="highlight-payment-container">
         <h2>Destaque seu Imóvel</h2>
-        <div class="payment-info">
-            <p>Ao destacar seu imóvel, ele aparecerá no topo das buscas e terá destaque especial no site, aumentando sua visibilidade e chances de negócio.</p>
+        <div class="payment-wrapper" style="display: flex; flex-wrap: wrap; gap: 20px;">
+            <?php
+            // Adicionar imagem do imóvel selecionado
+            $thumbnail_id = get_post_thumbnail_id($immobile_id);
+            $thumbnail_url = wp_get_attachment_image_url($thumbnail_id, 'medium');
+            if (!$thumbnail_url) {
+                $thumbnail_url = get_template_directory_uri() . '/inc/custom/broker/assets/images/placeholder-property.jpg';
+            }
+            $immobile_title = get_the_title($immobile_id);
+            ?>
             
-            <div class="price-info">
-                <h3>Plano de Destaque</h3>
-                <div class="price">R$ <?php echo number_format($monthly_price, 2, ',', '.'); ?>/mês</div>
-                <ul class="benefits">
-                    <li>Posicionamento no topo das buscas</li>
-                    <li>Etiqueta de "Destaque" nas listagens</li>
-                    <li>Maior visibilidade para potenciais clientes</li>
-                    <li>Assinatura mensal, cancele quando quiser</li>
-                </ul>
+            <div class="property-image-preview" style="flex: 0 0 300px;">
+                <h3>Imóvel Selecionado</h3>
+                <div class="property-image">
+                    <img src="<?php echo esc_url($thumbnail_url); ?>" alt="<?php echo esc_attr($immobile_title); ?>" style="max-width: 100%; height: auto; border-radius: 8px; border: 1px solid #ddd;">
+                </div>
+                <div class="property-title" style="margin-top: 10px; font-weight: bold;">
+                    <?php echo esc_html($immobile_title); ?>
+                </div>
+            </div>
+            
+            <div class="payment-info" style="flex: 1 1 400px;">
+                <p>Ao destacar seu imóvel, ele aparecerá no topo das buscas e terá destaque especial no site, aumentando sua visibilidade e chances de negócio.</p>
+                
+                <div class="price-info">
+                    <h3>Plano de Destaque</h3>
+                    <div class="price">R$ <?php echo number_format($monthly_price, 2, ',', '.'); ?>/mês</div>
+                    <ul class="benefits">
+                        <li>Posicionamento no topo das buscas</li>
+                        <li>Etiqueta de "Destaque" nas listagens</li>
+                        <li>Maior visibilidade para potenciais clientes</li>
+                        <li>Assinatura mensal, cancele quando quiser</li>
+                    </ul>
+                </div>
             </div>
         </div>
         

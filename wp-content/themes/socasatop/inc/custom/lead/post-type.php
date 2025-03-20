@@ -47,7 +47,7 @@ function register_lead_post_type() {
         'hierarchical'          => false,
         'public'                => false,
         'show_ui'               => true,
-        'show_in_menu'          => false,  // Não mostrar no menu, usaremos página customizada
+        'show_in_menu'          => true,  // Mostrar no menu para acesso direto
         'menu_position'         => 25,
         'menu_icon'             => 'dashicons-admin-users',
         'show_in_admin_bar'     => false,
@@ -57,12 +57,12 @@ function register_lead_post_type() {
         'exclude_from_search'   => true,
         'publicly_queryable'    => false,
         'capability_type'       => 'post',
-        'capabilities'          => array(
-            'create_posts' => 'do_not_allow', // Remove o botão "Adicionar Novo"
-        ),
         'map_meta_cap'          => true,
     );
     
     register_post_type('lead', $args);
 }
-add_action('init', 'register_lead_post_type'); 
+add_action('init', 'register_lead_post_type');
+
+// Incluir arquivo de colunas personalizadas e filtros para a listagem de leads
+require_once dirname(__FILE__) . '/columns.php'; 
