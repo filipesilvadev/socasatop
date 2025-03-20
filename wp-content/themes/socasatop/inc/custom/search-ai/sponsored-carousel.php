@@ -175,10 +175,23 @@ function get_sponsored_properties() {
         'post_status' => 'publish',
         'posts_per_page' => -1, // Buscar todos os imóveis destacados
         'meta_query' => array(
+            'relation' => 'AND',
             array(
                 'key' => 'is_sponsored',
                 'value' => 'yes',
                 'compare' => '='
+            ),
+            array(
+                'relation' => 'OR',
+                array(
+                    'key' => 'highlight_paused',
+                    'value' => 'yes',
+                    'compare' => '!='
+                ),
+                array(
+                    'key' => 'highlight_paused',
+                    'compare' => 'NOT EXISTS'
+                )
             )
         ),
         'post__not_in' => array($current_post_id) // Excluir o imóvel atual
@@ -193,20 +206,29 @@ function get_sponsored_properties() {
             $query->the_post();
             $post_id = get_the_ID();
             
-            // Evitar duplicatas
-            if (in_array($post_id, $properties)) {
+            // Verificar se o destaque não está pausado
+            $highlight_paused = get_post_meta($post_id, 'highlight_paused', true);
+            if ($highlight_paused === 'yes') {
                 continue;
             }
             
+            // Obter imagem da galeria
             $gallery = get_post_meta($post_id, 'immobile_gallery', true);
             $gallery_ids = !empty($gallery) ? explode(',', $gallery) : array();
             $first_image_id = !empty($gallery_ids[0]) ? $gallery_ids[0] : 0;
+            
+            // Obter URL da imagem e garantir HTTPS
+            $thumbnail = $first_image_id ? wp_get_attachment_url($first_image_id) : '';
+            if ($thumbnail) {
+                // Forçar HTTPS
+                $thumbnail = str_replace('http://', 'https://', $thumbnail);
+            }
             
             $properties[] = array(
                 'id' => $post_id,
                 'title' => get_the_title(),
                 'permalink' => get_permalink(),
-                'thumbnail' => $first_image_id ? wp_get_attachment_url($first_image_id) : '',
+                'thumbnail' => $thumbnail,
                 'location' => get_post_meta($post_id, 'location', true),
                 'amount' => get_post_meta($post_id, 'amount', true)
             );
@@ -234,15 +256,29 @@ function get_sponsored_properties() {
                     $query->the_post();
                     $post_id = get_the_ID();
                     
+                    // Verificar se o destaque não está pausado
+                    $highlight_paused = get_post_meta($post_id, 'highlight_paused', true);
+                    if ($highlight_paused === 'yes') {
+                        continue;
+                    }
+                    
+                    // Obter imagem da galeria
                     $gallery = get_post_meta($post_id, 'immobile_gallery', true);
                     $gallery_ids = !empty($gallery) ? explode(',', $gallery) : array();
                     $first_image_id = !empty($gallery_ids[0]) ? $gallery_ids[0] : 0;
+                    
+                    // Obter URL da imagem e garantir HTTPS
+                    $thumbnail = $first_image_id ? wp_get_attachment_url($first_image_id) : '';
+                    if ($thumbnail) {
+                        // Forçar HTTPS
+                        $thumbnail = str_replace('http://', 'https://', $thumbnail);
+                    }
                     
                     $properties[] = array(
                         'id' => $post_id,
                         'title' => get_the_title(),
                         'permalink' => get_permalink(),
-                        'thumbnail' => $first_image_id ? wp_get_attachment_url($first_image_id) : '',
+                        'thumbnail' => $thumbnail,
                         'location' => get_post_meta($post_id, 'location', true),
                         'amount' => get_post_meta($post_id, 'amount', true)
                     );

@@ -403,7 +403,7 @@ function display_immobile_template() {
         }
 
         .destaque-wrapper{
-          display:none;
+          display:block;
         }
 
         .broker-bio {
@@ -523,13 +523,12 @@ function display_immobile_template() {
     </script>
     <div class="destaque-interna">
       <div class="destaque-wrapper">
-    <h2 class="destaque-title">Confira outros destaques</h2>
-    <?php
-    return ob_get_clean() . do_shortcode('[sponsored_carousel]');
-    ?>
-    </div>
+        <h2 class="destaque-title">Confira outros destaques</h2>
+        <?php echo do_shortcode('[sponsored_carousel]'); ?>
+      </div>
     </div>
     <?php
+    return ob_get_clean();
 }
 add_shortcode('immobile_profile', 'display_immobile_template');
 

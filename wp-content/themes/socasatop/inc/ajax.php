@@ -455,62 +455,114 @@ add_action('wp_ajax_process_immobile_payment', 'process_immobile_payment');
  * Pausa o destaque de um imóvel
  */
 function pause_immobile_highlight() {
+    // Verificar se o nonce é válido
     check_ajax_referer('broker_dashboard_nonce', 'nonce');
     
-    if (!is_user_logged_in()) {
-        wp_send_json_error('Usuário não autenticado');
+    // Verificar se o ID do imóvel foi fornecido
+    if (!isset($_POST['property_id']) || empty($_POST['property_id'])) {
+        wp_send_json_error('ID do imóvel não fornecido.');
+        return;
     }
     
-    $user = wp_get_current_user();
-    if (!in_array('author', (array) $user->roles)) {
-        wp_send_json_error('Acesso restrito a corretores');
-    }
-    
+    $property_id = intval($_POST['property_id']);
     $user_id = get_current_user_id();
-    $property_id = isset($_POST['property_id']) ? intval($_POST['property_id']) : 0;
     
-    if (empty($property_id)) {
-        wp_send_json_error('ID do imóvel não fornecido');
-    }
-    
-    // Verificar se o imóvel pertence ao corretor
+    // Verificar se o usuário tem permissão para pausar o destaque deste imóvel
     $broker_id = get_post_meta($property_id, 'broker', true);
     if ($broker_id != $user_id) {
-        wp_send_json_error('Você não tem permissão para modificar este imóvel');
+        wp_send_json_error('Você não tem permissão para pausar o destaque deste imóvel.');
+        return;
     }
     
-    // Verificar se o imóvel está destacado
-    $is_sponsored = get_post_meta($property_id, 'is_sponsored', true) === 'yes';
-    if (!$is_sponsored) {
-        wp_send_json_error('Este imóvel não está destacado');
+    // Verificar se o imóvel está em destaque
+    $is_sponsored = get_post_meta($property_id, 'is_sponsored', true);
+    if ($is_sponsored !== 'yes') {
+        wp_send_json_error('Este imóvel não está em destaque.');
+        return;
     }
     
-    // Obter ID da assinatura do Mercado Pago
-    $subscription_id = get_post_meta($property_id, 'mercadopago_subscription_id', true);
-    
-    if (!empty($subscription_id)) {
-        // Cancelar assinatura no Mercado Pago
-        $cancel_result = cancel_mercadopago_subscription($subscription_id);
-        
-        if (!$cancel_result['success']) {
-            wp_send_json_error('Erro ao cancelar a assinatura: ' . $cancel_result['message']);
-        }
-    }
-    
-    // Marcar o destaque como pausado
+    // Atualizar o status de pausa
     update_post_meta($property_id, 'highlight_paused', 'yes');
     
-    // Registrar a ação nos logs
-    $log_message = sprintf(
-        'Destaque pausado para o imóvel #%d pelo usuário #%d',
-        $property_id,
-        $user_id
+    // Atualizar também a tabela broker_immobile, se necessário
+    global $wpdb;
+    $broker_immobile_table = $wpdb->prefix . 'broker_immobile';
+    $wpdb->update(
+        $broker_immobile_table,
+        array('is_paused' => 1),
+        array(
+            'broker_id' => $user_id,
+            'immobile_id' => $property_id
+        )
     );
-    error_log($log_message);
     
-    wp_send_json_success('Destaque pausado com sucesso');
+    // Registrar log da operação
+    error_log("Destaque pausado para o imóvel ID: {$property_id} pelo usuário ID: {$user_id}");
+    
+    // Retornar sucesso
+    wp_send_json_success('Destaque pausado com sucesso.');
 }
 add_action('wp_ajax_pause_immobile_highlight', 'pause_immobile_highlight');
+
+/**
+ * Reativa o destaque de um imóvel que foi pausado
+ */
+function reactivate_immobile_highlight() {
+    // Verificar se o nonce é válido
+    check_ajax_referer('broker_dashboard_nonce', 'nonce');
+    
+    // Verificar se o ID do imóvel foi fornecido
+    if (!isset($_POST['property_id']) || empty($_POST['property_id'])) {
+        wp_send_json_error('ID do imóvel não fornecido.');
+        return;
+    }
+    
+    $property_id = intval($_POST['property_id']);
+    $user_id = get_current_user_id();
+    
+    // Verificar se o usuário tem permissão para reativar o destaque deste imóvel
+    $broker_id = get_post_meta($property_id, 'broker', true);
+    if ($broker_id != $user_id) {
+        wp_send_json_error('Você não tem permissão para reativar o destaque deste imóvel.');
+        return;
+    }
+    
+    // Verificar se o imóvel está em destaque e pausado
+    $is_sponsored = get_post_meta($property_id, 'is_sponsored', true);
+    $is_paused = get_post_meta($property_id, 'highlight_paused', true);
+    
+    if ($is_sponsored !== 'yes') {
+        wp_send_json_error('Este imóvel não está em destaque.');
+        return;
+    }
+    
+    if ($is_paused !== 'yes') {
+        wp_send_json_error('Este destaque não está pausado.');
+        return;
+    }
+    
+    // Atualizar o status de pausa
+    update_post_meta($property_id, 'highlight_paused', 'no');
+    
+    // Atualizar também a tabela broker_immobile, se necessário
+    global $wpdb;
+    $broker_immobile_table = $wpdb->prefix . 'broker_immobile';
+    $wpdb->update(
+        $broker_immobile_table,
+        array('is_paused' => 0),
+        array(
+            'broker_id' => $user_id,
+            'immobile_id' => $property_id
+        )
+    );
+    
+    // Registrar log da operação
+    error_log("Destaque reativado para o imóvel ID: {$property_id} pelo usuário ID: {$user_id}");
+    
+    // Retornar sucesso
+    wp_send_json_success('Destaque reativado com sucesso.');
+}
+add_action('wp_ajax_reactivate_immobile_highlight', 'reactivate_immobile_highlight');
 
 /**
  * Cancela uma assinatura no Mercado Pago
