@@ -194,26 +194,32 @@ function is_property_highlighted($property_id) {
 
 /**
  * Renderiza o formulário de pagamento para destacar um imóvel
+ * 
+ * @param int $immobile_id ID do imóvel a ser destacado (opcional)
  */
-function render_highlight_payment_form() {
+function render_highlight_payment_form($immobile_id = 0) {
     // Verificar se o usuário está logado e é um corretor
-    if (!is_user_logged_in() || !current_user_can('broker')) {
+    if (!is_user_logged_in() || (!current_user_can('author') && !current_user_can('administrator'))) {
         echo '<div class="error-message">Você precisa estar logado como um corretor para destacar imóveis.</div>';
         return;
     }
     
-    // Verificar se o ID do imóvel foi passado
-    if (!isset($_GET['immobile_id']) || empty($_GET['immobile_id'])) {
+    // Verificar se o ID do imóvel foi passado como parâmetro ou via URL
+    if ($immobile_id <= 0 && isset($_GET['immobile_id'])) {
+        $immobile_id = intval($_GET['immobile_id']);
+    }
+    
+    // Verificar se temos um ID válido
+    if ($immobile_id <= 0) {
         echo '<div class="error-message">Nenhum imóvel selecionado para destacar.</div>';
         return;
     }
     
-    $immobile_id = intval($_GET['immobile_id']);
     $current_user_id = get_current_user_id();
     
-    // Verificar se o imóvel pertence ao usuário atual
+    // Verificar se o imóvel pertence ao usuário atual ou se é administrador
     $author_id = get_post_field('post_author', $immobile_id);
-    if (intval($author_id) !== $current_user_id) {
+    if (intval($author_id) !== $current_user_id && !current_user_can('administrator')) {
         echo '<div class="error-message">Você não tem permissão para destacar este imóvel.</div>';
         return;
     }
@@ -1105,14 +1111,14 @@ function highlight_payment_process_ajax() {
     $payment_method = isset($_POST['payment_method']) ? sanitize_text_field($_POST['payment_method']) : 'direct';
     
     // Verificar se o usuário está logado
-    if (!is_user_logged_in()) {
-        wp_send_json_error(array('message' => 'Você precisa estar logado para destacar um imóvel.'));
+    if (!is_user_logged_in() || (!current_user_can('author') && !current_user_can('administrator'))) {
+        wp_send_json_error(array('message' => 'Você precisa estar logado como um corretor para destacar um imóvel.'));
         return;
     }
     
-    // Verificar se o imóvel pertence ao usuário atual
+    // Verificar se o imóvel pertence ao usuário atual ou se é administrador
     $author_id = get_post_field('post_author', $immobile_id);
-    if (intval($author_id) !== $current_user_id) {
+    if (intval($author_id) !== $current_user_id && !current_user_can('administrator')) {
         wp_send_json_error(array('message' => 'Você não tem permissão para destacar este imóvel.'));
         return;
     }
