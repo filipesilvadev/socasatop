@@ -195,7 +195,8 @@ function is_property_highlighted($property_id) {
 /**
  * Renderiza o formulário de pagamento para destacar um imóvel
  * 
- * @param int $immobile_id ID do imóvel a ser destacado (opcional)
+ * @param array $atts Atributos passados para a função, incluindo immobile_id
+ * @return string HTML do formulário
  */
 function render_highlight_payment_form($atts = array()) {
     global $wpdb;
@@ -213,7 +214,16 @@ function render_highlight_payment_form($atts = array()) {
     }
     
     // Verificar se um imóvel foi selecionado
-    $immobile_id = isset($_GET['immobile_id']) ? intval($_GET['immobile_id']) : 0;
+    $immobile_id = 0;
+    
+    // Verificar se immobile_id foi passado nos atributos
+    if (isset($atts['immobile_id']) && intval($atts['immobile_id']) > 0) {
+        $immobile_id = intval($atts['immobile_id']);
+    } 
+    // Caso contrário, verificar se está na URL
+    elseif (isset($_GET['immobile_id'])) {
+        $immobile_id = intval($_GET['immobile_id']);
+    }
     
     if (!$immobile_id) {
         return '<div class="highlight-error">Nenhum imóvel selecionado. <a href="' . home_url('/meus-imoveis/') . '">Clique aqui</a> para ver seus imóveis.</div>';
@@ -225,6 +235,9 @@ function render_highlight_payment_form($atts = array()) {
     if (!$post || $post->post_author != $user_id) {
         return '<div class="highlight-error">O imóvel selecionado não pertence a você.</div>';
     }
+    
+    // Log para debug
+    error_log("Iniciando renderização do formulário de destaque para imóvel ID: $immobile_id");
     
     // Obter preço do destaque
     $highlight_price = get_option('highlight_payment_price', 149.90);
@@ -550,7 +563,7 @@ function highlight_payment_shortcode($atts) {
     
     ob_start();
     echo '<div style="font-family: Arial, sans-serif; line-height: 1.6;">';
-    render_highlight_payment_form($immobile_id);
+    render_highlight_payment_form($atts);
     echo '</div>';
     return ob_get_clean();
 }

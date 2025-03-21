@@ -231,12 +231,57 @@ function highlight_payment_form_shortcode($atts) {
         'immobile_id' => 0,
     ), $atts);
     
-    return socasa_payment_shortcode(array(
-        'entity_id' => $atts['immobile_id'],
-        'product_id' => 'highlight',
-        'success_url' => '/corretores/configuracoes-pagamento/',
-        'show_terms' => 'true'
+    // Verificar se o ID do imóvel foi passado pela URL
+    if (isset($_GET['immobile_id'])) {
+        $immobile_id = intval($_GET['immobile_id']);
+    } else {
+        $immobile_id = intval($atts['immobile_id']);
+    }
+    
+    if ($immobile_id <= 0) {
+        return '<div class="error-message">ID do imóvel não fornecido ou inválido.</div>';
+    }
+    
+    // Verificar se o imóvel existe
+    $immobile = get_post($immobile_id);
+    if (!$immobile) {
+        return '<div class="error-message">Imóvel não encontrado.</div>';
+    }
+    
+    // Incluir os scripts e estilos necessários
+    wp_enqueue_style('highlight-css', get_stylesheet_directory_uri() . '/inc/custom/broker/assets/css/highlight.css', array(), '1.0.5');
+    wp_enqueue_script('mercadopago-js', 'https://sdk.mercadopago.com/js/v2', array(), null, true);
+    wp_enqueue_script('highlight-payment-js', get_stylesheet_directory_uri() . '/inc/custom/broker/assets/js/highlight-payment.js', array('jquery'), '1.0.5', true);
+    
+    // Passar dados para o JavaScript
+    $highlight_price = get_option('highlight_payment_price', 149.90);
+    $mp_public_key = get_option('mercadopago_public_key_test');
+    
+    if (get_option('mercadopago_production_mode', 'no') === 'yes') {
+        $mp_public_key = get_option('mercadopago_public_key_prod');
+    }
+    
+    wp_localize_script('highlight-payment-js', 'highlight_payment', array(
+        'ajax_url' => admin_url('admin-ajax.php'),
+        'nonce' => wp_create_nonce('highlight_payment_nonce'),
+        'immobile_id' => $immobile_id,
+        'price' => $highlight_price,
+        'public_key' => $mp_public_key,
     ));
+    
+    // Usar diretamente a função de renderização do formulário
+    ob_start();
+    echo '<div class="highlight-payment-wrapper">';
+    
+    if (function_exists('render_highlight_payment_form')) {
+        echo render_highlight_payment_form(array('immobile_id' => $immobile_id));
+    } else {
+        echo '<div class="error-message">O sistema de pagamento para destaque está temporariamente indisponível.</div>';
+        error_log('Função render_highlight_payment_form não encontrada');
+    }
+    
+    echo '</div>';
+    return ob_get_clean();
 }
 add_shortcode('highlight_payment_form', 'highlight_payment_form_shortcode');
 
