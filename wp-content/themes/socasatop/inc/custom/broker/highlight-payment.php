@@ -257,6 +257,39 @@ function render_highlight_payment_form($immobile_id = 0) {
     if ($price <= 0) {
         $price = get_post_meta($immobile_id, 'rent_price', true); // Alternativa: tentar preço de aluguel
         $price = !empty($price) ? floatval($price) : 0;
+        
+        // Tentar outras opções de campos de preço que possam existir
+        if ($price <= 0) {
+            $price_alternatives = array(
+                'property_price',
+                'property_rent_price',
+                '_price',
+                '_rent_price',
+                'immobile_price',
+                'immobile_rent_price'
+            );
+            
+            foreach ($price_alternatives as $price_field) {
+                $temp_price = get_post_meta($immobile_id, $price_field, true);
+                if (!empty($temp_price) && is_numeric($temp_price)) {
+                    $price = floatval($temp_price);
+                    break;
+                }
+            }
+            
+            // Se ainda for zero, obter o preço do post
+            if ($price <= 0) {
+                $post_content = get_post_field('post_content', $immobile_id);
+                // Procurar por padrões de preço como "R$ 1.000.000,00" ou "1000000"
+                if (preg_match('/R\$\s*([0-9.,]+)/i', $post_content, $matches)) {
+                    $price_str = str_replace(array('.', ','), array('', '.'), $matches[1]);
+                    $price = floatval($price_str);
+                }
+            }
+            
+            // Log para debug
+            error_log("Preço final obtido para o imóvel ID {$immobile_id}: {$price}");
+        }
     }
     
     // Obter a imagem de destaque de forma segura
@@ -272,17 +305,74 @@ function render_highlight_payment_form($immobile_id = 0) {
         }
     } 
     
-    // Se não encontrou imagem ou não existe imagem destacada
+    // Se não encontrou imagem ou não existe imagem destacada, tentar outras opções
     if (empty($image_url)) {
-        // Caminho para uma imagem padrão
-        $placeholder_path = '/inc/custom/broker/assets/images/no-image.jpg';
-        $placeholder_file = get_stylesheet_directory() . $placeholder_path;
+        // Tentar obter a primeira imagem da galeria
+        $gallery_images = get_post_meta($immobile_id, 'gallery_images', true);
+        if (!empty($gallery_images) && is_array($gallery_images) && count($gallery_images) > 0) {
+            $first_image_id = $gallery_images[0];
+            $image_src = wp_get_attachment_image_src($first_image_id, 'medium');
+            if ($image_src && isset($image_src[0])) {
+                $image_url = $image_src[0];
+                $image_url = str_replace('http://', 'https://', $image_url);
+            }
+        }
         
-        if (file_exists($placeholder_file)) {
-            $image_url = get_stylesheet_directory_uri() . $placeholder_path;
-        } else {
-            // Fallback para placeholder online
-            $image_url = 'https://via.placeholder.com/400x300?text=Sem+Imagem';
+        // Tentar encontrar a primeira imagem no conteúdo
+        if (empty($image_url)) {
+            $post_content = get_post_field('post_content', $immobile_id);
+            if (preg_match('/<img.+src=[\'"]([^\'"]+)[\'"].*>/i', $post_content, $matches)) {
+                $image_url = $matches[1];
+                $image_url = str_replace('http://', 'https://', $image_url);
+            }
+        }
+        
+        // Tentar obter imagem de outros meta campos comuns
+        if (empty($image_url)) {
+            $image_field_options = array(
+                'property_image',
+                'main_image',
+                'featured_image',
+                'property_featured_image',
+                '_thumbnail'
+            );
+            
+            foreach ($image_field_options as $field) {
+                $image_meta = get_post_meta($immobile_id, $field, true);
+                if (!empty($image_meta)) {
+                    if (is_numeric($image_meta)) {
+                        // Se for um ID de anexo
+                        $image_src = wp_get_attachment_image_src($image_meta, 'medium');
+                        if ($image_src && isset($image_src[0])) {
+                            $image_url = $image_src[0];
+                            $image_url = str_replace('http://', 'https://', $image_url);
+                            break;
+                        }
+                    } elseif (filter_var($image_meta, FILTER_VALIDATE_URL)) {
+                        // Se for uma URL direta
+                        $image_url = $image_meta;
+                        $image_url = str_replace('http://', 'https://', $image_url);
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // Se ainda não encontrou, usar imagem padrão
+        if (empty($image_url)) {
+            // Caminho para uma imagem padrão
+            $placeholder_path = '/inc/custom/broker/assets/images/no-image.jpg';
+            $placeholder_file = get_stylesheet_directory() . $placeholder_path;
+            
+            if (file_exists($placeholder_file)) {
+                $image_url = get_stylesheet_directory_uri() . $placeholder_path;
+            } else {
+                // Fallback para placeholder online
+                $image_url = 'https://via.placeholder.com/400x300?text=Sem+Imagem';
+            }
+            
+            // Registrar a falta de imagem
+            error_log("Nenhuma imagem encontrada para o imóvel ID {$immobile_id}. Usando placeholder.");
         }
     }
     
