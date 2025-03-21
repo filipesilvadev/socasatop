@@ -1464,3 +1464,27 @@ function highlight_mercadopago_test_template() {
     }
 }
 add_action('template_redirect', 'highlight_mercadopago_test_template');
+
+/**
+ * Obtém a chave pública do MercadoPago baseado no ambiente (teste ou produção)
+ * 
+ * @return string Chave pública do MercadoPago
+ */
+function socasa_get_mp_public_key() {
+    $test_mode = socasa_is_mp_test_mode();
+    
+    if ($test_mode) {
+        return get_option('mercadopago_test_public_key', '');
+    } else {
+        return get_option('mercadopago_public_key', '');
+    }
+}
+
+/**
+ * Verifica se o MercadoPago está em modo de teste
+ * 
+ * @return boolean True se estiver em modo de teste, false caso contrário
+ */
+function socasa_is_mp_test_mode() {
+    return get_option('mercadopago_test_mode', 'yes') === 'yes';
+}
