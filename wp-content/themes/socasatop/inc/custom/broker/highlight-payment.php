@@ -1466,25 +1466,36 @@ function highlight_mercadopago_test_template() {
 add_action('template_redirect', 'highlight_mercadopago_test_template');
 
 /**
- * Obtém a chave pública do MercadoPago baseado no ambiente (teste ou produção)
+ * Obtém a chave pública do MercadoPago baseada no ambiente (teste ou produção)
  * 
  * @return string Chave pública do MercadoPago
  */
 function socasa_get_mp_public_key() {
-    $test_mode = socasa_is_mp_test_mode();
+    $is_test_mode = socasa_is_mp_test_mode();
     
-    if ($test_mode) {
-        return get_option('mercadopago_test_public_key', '');
+    if ($is_test_mode) {
+        $public_key = get_option('mercadopago_test_public_key', '');
+        
+        // Usar chave de teste padrão se não estiver configurada
+        if (empty($public_key)) {
+            $public_key = 'TEST-70b46d06-add9-499a-942e-0f5c01b8769a';
+        }
     } else {
-        return get_option('mercadopago_public_key', '');
+        $public_key = get_option('mercadopago_public_key', '');
     }
+    
+    if (empty($public_key)) {
+        error_log('Chave pública do MercadoPago não configurada para ambiente ' . ($is_test_mode ? 'de teste' : 'de produção'));
+    }
+    
+    return $public_key;
 }
 
 /**
  * Verifica se o MercadoPago está em modo de teste
  * 
- * @return boolean True se estiver em modo de teste, false caso contrário
+ * @return bool Verdadeiro se estiver em modo de teste, falso caso contrário
  */
 function socasa_is_mp_test_mode() {
-    return get_option('mercadopago_test_mode', 'yes') === 'yes';
+    return get_option('mercadopago_sandbox', 'yes') === 'yes';
 }

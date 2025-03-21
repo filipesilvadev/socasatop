@@ -224,55 +224,35 @@ function socasa_payment_shortcode($atts) {
 }
 add_shortcode('socasa_payment', 'socasa_payment_shortcode');
 
-// Manter os shortcodes antigos por compatibilidade, mas usando a nova implementação
+/**
+ * Shortcode para o formulário de pagamento de destaque
+ */
 function highlight_payment_form_shortcode($atts) {
-    // Extrair atributos
     $atts = shortcode_atts(array(
         'immobile_id' => 0,
-    ), $atts);
+    ), $atts, 'highlight_payment_form');
+
+    $immobile_id = intval($atts['immobile_id']);
     
-    // Verificar se o ID do imóvel foi passado pela URL
-    if (isset($_GET['immobile_id'])) {
-        $immobile_id = intval($_GET['immobile_id']);
-    } else {
-        $immobile_id = intval($atts['immobile_id']);
+    if (!$immobile_id) {
+        $immobile_id = isset($_GET['immobile_id']) ? intval($_GET['immobile_id']) : 0;
     }
-    
-    if ($immobile_id <= 0) {
-        return '<div class="error-message">ID do imóvel não fornecido ou inválido.</div>';
+
+    if (!$immobile_id) {
+        return '<div class="alert alert-danger">Imóvel não especificado. Por favor, selecione um imóvel para destacar.</div>';
     }
-    
-    // Verificar se o imóvel existe
-    $immobile = get_post($immobile_id);
-    if (!$immobile) {
-        return '<div class="error-message">Imóvel não encontrado.</div>';
+
+    if (!function_exists('render_highlight_payment_form')) {
+        return '<div class="alert alert-danger">Erro: Função de renderização do formulário não encontrada.</div>';
     }
-    
-    // Incluir os scripts e estilos necessários
-    wp_enqueue_style('highlight-css', get_stylesheet_directory_uri() . '/inc/custom/broker/assets/css/highlight.css', array(), '1.0.7');
-    wp_enqueue_script('mercadopago-js', 'https://sdk.mercadopago.com/js/v2', array(), null, true);
-    wp_enqueue_script('highlight-payment-js', get_stylesheet_directory_uri() . '/inc/custom/broker/assets/js/highlight-payment.js', array('jquery'), '1.0.7', true);
-    
-    // Verificar se o arquivo de processamento do destaque existe
-    $highlight_file = get_template_directory() . '/inc/custom/broker/highlight-payment.php';
-    if (!file_exists($highlight_file)) {
-        error_log('Arquivo de destaque não encontrado: ' . $highlight_file);
-        return '<div class="error-message">Sistema de destaque temporariamente indisponível.</div>';
-    }
-    
-    // Incluir o arquivo do sistema de destaque
-    require_once($highlight_file);
-    
-    // Usar diretamente a função de renderização do formulário
+
+    // Carrega os estilos e scripts necessários
+    wp_enqueue_style('highlight-css', get_template_directory_uri() . '/inc/custom/broker/assets/css/highlight.css', array(), '1.0.5');
+    wp_enqueue_script('highlight-payment-js', get_template_directory_uri() . '/inc/custom/broker/assets/js/highlight-payment.js', array('jquery'), '1.0.5', true);
+    wp_enqueue_script('debug-js', get_template_directory_uri() . '/inc/custom/broker/assets/js/debug.js', array('jquery'), '1.0.5', true);
+
     ob_start();
-    
-    if (function_exists('render_highlight_payment_form')) {
-        echo render_highlight_payment_form($immobile_id);
-    } else {
-        echo '<div class="error-message">O sistema de pagamento para destaque está temporariamente indisponível.</div>';
-        error_log('Função render_highlight_payment_form não encontrada');
-    }
-    
+    render_highlight_payment_form($immobile_id);
     return ob_get_clean();
 }
 add_shortcode('highlight_payment_form', 'highlight_payment_form_shortcode');
