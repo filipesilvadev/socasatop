@@ -1,0 +1,297 @@
+/* Estilos para a página de destaque de imóveis */
+.highlight-payment-container {
+    max-width: 800px;
+    margin: 0 auto 30px;
+    padding: 25px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.highlight-payment-container h2 {
+    color: #333;
+    margin-bottom: 20px;
+    text-align: center;
+    font-size: 24px;
+}
+
+.highlight-payment-container h3 {
+    color: #333;
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 18px;
+}
+
+/* Benefícios do destaque */
+.highlight-benefits {
+    margin: 25px 0;
+    padding: 20px;
+    background-color: #f9f9f9;
+    border-radius: 6px;
+    border-left: 4px solid #4CAF50;
+}
+
+.highlight-benefits h3 {
+    margin-top: 0;
+    color: #333;
+    font-size: 18px;
+}
+
+.highlight-benefits ul {
+    padding-left: 20px;
+    margin-bottom: 0;
+}
+
+.highlight-benefits li {
+    margin-bottom: 10px;
+    position: relative;
+    padding-left: 15px;
+}
+
+.highlight-benefits li:before {
+    content: "✓";
+    color: #4CAF50;
+    position: absolute;
+    left: -10px;
+}
+
+/* Preview do imóvel */
+.property-preview {
+    margin: 20px 0;
+}
+
+.property-card {
+    display: flex;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.property-image {
+    width: 40%;
+    height: 200px;
+    overflow: hidden;
+}
+
+.property-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.property-details {
+    width: 60%;
+    padding: 15px;
+}
+
+.property-details h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #333;
+    font-size: 16px;
+}
+
+.property-price {
+    font-size: 18px;
+    font-weight: bold;
+    color: #4CAF50;
+    margin-bottom: 0;
+}
+
+/* Preço do destaque */
+.highlight-pricing {
+    margin: 25px 0;
+    text-align: center;
+    padding: 20px;
+    background-color: #f0f8ff;
+    border-radius: 6px;
+}
+
+.highlight-pricing .price {
+    font-size: 32px;
+    font-weight: bold;
+    color: #4CAF50;
+    margin-bottom: 5px;
+}
+
+.highlight-pricing .period {
+    color: #666;
+    font-size: 16px;
+}
+
+.price-box {
+    margin: 15px 0;
+}
+
+.price-label {
+    font-size: 16px;
+    color: #666;
+    margin-right: 10px;
+}
+
+.price-value {
+    font-size: 22px;
+    font-weight: bold;
+    color: #4CAF50;
+}
+
+.price-info {
+    color: #666;
+    font-size: 14px;
+    margin-bottom: 0;
+}
+
+/* Opções de pagamento */
+.payment-options {
+    margin: 25px 0;
+    border: 1px solid #ddd;
+    padding: 20px;
+    border-radius: 6px;
+}
+
+.payment-method-selection {
+    margin-bottom: 20px;
+}
+
+.saved-card-option {
+    margin: 15px 0;
+    padding: 15px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+}
+
+.saved-card-option.selected {
+    border-color: #4CAF50;
+    background-color: #f0fff0;
+}
+
+.card-container {
+    margin-top: 10px;
+    padding: 15px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+}
+
+/* Campos do cartão do Mercado Pago */
+#cardNumberContainer,
+#expirationDateContainer,
+#securityCodeContainer {
+    height: 40px;
+    margin-bottom: 15px;
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: #fff;
+}
+
+#cardholderName {
+    width: 100%;
+    height: 40px;
+    margin-bottom: 15px;
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+#identificationNumber {
+    width: 100%;
+    height: 40px;
+    margin-bottom: 15px;
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+/* Mensagens de resultado */
+#payment-result {
+    margin: 20px 0;
+    padding: 15px;
+    border-radius: 6px;
+    display: none;
+}
+
+.success-message {
+    background-color: #dff0d8;
+    color: #3c763d;
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    display: none;
+}
+
+.error-message {
+    background-color: #f2dede;
+    color: #a94442;
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    display: none;
+}
+
+/* Termos e condições */
+.terms-conditions {
+    margin: 20px 0;
+    padding: 15px;
+    background-color: #f9f9f9;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.terms-conditions label {
+    display: flex;
+    align-items: flex-start;
+}
+
+.terms-conditions input[type="checkbox"] {
+    margin-right: 10px;
+    margin-top: 3px;
+}
+
+/* Botão de destaque */
+.highlight-action {
+    text-align: center;
+    margin: 30px 0 15px;
+}
+
+.highlight-button {
+    display: inline-block;
+    padding: 15px 30px;
+    background-color: #4CAF50;
+    color: white !important;
+    border-radius: 4px;
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 16px;
+    transition: background-color 0.3s;
+    border: none;
+    cursor: pointer;
+}
+
+.highlight-button:hover {
+    background-color: #45a049;
+    text-decoration: none;
+}
+
+.highlight-button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+/* Responsivo */
+@media (max-width: 768px) {
+    .highlight-payment-container {
+        padding: 15px;
+    }
+    
+    .highlight-button {
+        padding: 12px 20px;
+        font-size: 14px;
+    }
+    
+    .highlight-pricing .price {
+        font-size: 24px;
+    }
+} 
