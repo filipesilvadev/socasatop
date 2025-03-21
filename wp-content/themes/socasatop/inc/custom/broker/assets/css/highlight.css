@@ -1,167 +1,436 @@
 /* Estilos para a página de destaque de imóveis */
 .highlight-container {
-    max-width: 800px;
-    margin: 20px auto;
-    padding: 20px;
+    max-width: 1100px;
+    margin: 30px auto;
+    padding: 0;
     background-color: #fff;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    box-shadow: 0 3px 15px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.highlight-header {
+    background-color: #f8f9fa;
+    padding: 25px 30px;
+    border-bottom: 1px solid #e9ecef;
 }
 
 .highlight-title {
-    font-size: 24px;
-    color: #333;
-    margin-bottom: 20px;
+    font-size: 28px;
+    color: #2a5885;
+    margin-bottom: 15px;
     text-align: center;
-    font-weight: 600;
+    font-weight: 700;
 }
 
 .highlight-description {
     font-size: 16px;
-    color: #666;
-    margin-bottom: 20px;
-    line-height: 1.5;
+    color: #555;
+    margin-bottom: 5px;
+    line-height: 1.6;
     text-align: center;
 }
 
-.highlight-property-info {
+.highlight-content {
     display: flex;
     flex-wrap: wrap;
+    padding: 30px;
+}
+
+.highlight-left-column {
+    flex: 1 1 450px;
+    padding-right: 30px;
     margin-bottom: 30px;
-    padding: 15px;
-    background-color: #f9f9f9;
-    border-radius: 6px;
-    border: 1px solid #eee;
+}
+
+.highlight-right-column {
+    flex: 1 1 450px;
+}
+
+/* Estilos para o card do imóvel */
+.highlight-property-card {
+    background-color: #fff;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    margin-bottom: 25px;
 }
 
 .highlight-property-image {
-    flex: 0 0 250px;
-    max-width: 250px;
-    margin-right: 20px;
-    margin-bottom: 15px;
+    height: 250px;
+    overflow: hidden;
+    position: relative;
 }
 
 .highlight-property-image img {
     width: 100%;
-    height: auto;
-    border-radius: 5px;
+    height: 100%;
     object-fit: cover;
-    max-height: 180px;
-    border: 1px solid #ddd;
+    transition: transform 0.3s ease;
+}
+
+.highlight-property-image img:hover {
+    transform: scale(1.05);
 }
 
 .highlight-property-details {
-    flex: 1 1 300px;
+    padding: 20px;
 }
 
 .highlight-property-title {
-    font-size: 20px;
-    font-weight: 600;
+    font-size: 22px;
+    font-weight: 700;
     color: #333;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
+    line-height: 1.3;
 }
 
-.highlight-property-address {
+.highlight-property-location {
+    font-size: 15px;
+    color: #555;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+}
+
+.highlight-property-location:before {
+    content: '\f3c5';
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+    margin-right: 8px;
+    color: #2a5885;
+}
+
+.highlight-property-features {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.property-feature {
+    display: flex;
+    align-items: center;
     font-size: 14px;
-    color: #666;
-    margin-bottom: 10px;
-    line-height: 1.4;
+    color: #555;
+}
+
+.property-feature i {
+    margin-right: 5px;
+    color: #2a5885;
 }
 
 .highlight-property-price {
-    font-size: 18px;
-    font-weight: 600;
+    font-size: 24px;
+    font-weight: 700;
     color: #2a5885;
-    margin-bottom: 15px;
+    margin: 5px 0 0;
 }
 
-.highlight-payment-info {
-    background-color: #f5f7fa;
-    padding: 15px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    border: 1px solid #e0e6ed;
+/* Estilos para a caixa de benefícios */
+.highlight-benefits-box {
+    background-color: #f8fbff;
+    border-radius: 10px;
+    padding: 25px;
+    border: 1px solid #e0e9f5;
+}
+
+.highlight-benefits-box h3 {
+    color: #2a5885;
+    font-size: 20px;
+    margin-bottom: 15px;
+    font-weight: 600;
+}
+
+.highlight-benefits-box ul {
+    padding-left: 0;
+    list-style: none;
+}
+
+.highlight-benefits-box li {
+    margin-bottom: 15px;
+    padding-left: 30px;
+    position: relative;
+    line-height: 1.5;
+}
+
+.highlight-benefits-box li i {
+    color: #4CAF50;
+    position: absolute;
+    left: 0;
+    top: 3px;
+}
+
+.highlight-benefits-box li strong {
+    color: #2a5885;
+    display: block;
+    margin-bottom: 2px;
+}
+
+/* Estilos para o card de pagamento */
+.highlight-payment-card {
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    margin-bottom: 25px;
+    overflow: hidden;
+}
+
+.highlight-price-section {
+    background-color: #2a5885;
+    color: white;
+    padding: 25px;
+    text-align: center;
+}
+
+.highlight-price-label {
+    display: block;
+    font-size: 16px;
+    margin-bottom: 5px;
 }
 
 .highlight-price {
-    font-size: 22px;
+    display: block;
+    font-size: 32px;
     font-weight: 700;
-    color: #2a5885;
-    text-align: center;
+    margin: 5px 0;
+}
+
+.highlight-price-period {
+    display: block;
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+.payment-options-section {
+    padding: 25px;
+}
+
+.payment-options-section h3 {
+    font-size: 18px;
+    color: #333;
     margin-bottom: 20px;
+    text-align: center;
+}
+
+/* Abas de pagamento */
+.payment-tabs {
+    display: flex;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #ddd;
+}
+
+.payment-tab {
+    flex: 1;
+    padding: 12px 15px;
+    text-align: center;
+    cursor: pointer;
+    background-color: #f5f5f5;
+    transition: all 0.3s ease;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    font-weight: 500;
+}
+
+.payment-tab:hover {
+    background-color: #e9e9e9;
+}
+
+.payment-tab.active {
+    background-color: white;
+    border: 1px solid #ddd;
+    border-bottom: none;
+    color: #2a5885;
+    font-weight: 600;
+}
+
+.payment-panel {
+    display: none;
+    padding-top: 20px;
+}
+
+.payment-panel.active {
     display: block;
 }
 
-.payment-options {
-    margin-bottom: 30px;
-}
-
-.payment-option {
-    margin-bottom: 15px;
-}
-
-.payment-option input[type="radio"] {
-    margin-right: 10px;
-}
-
-.payment-option label {
-    font-weight: 500;
-    cursor: pointer;
-}
-
-#new-card-form {
-    background-color: #fff;
-    padding: 20px;
+/* Opções de cartão salvo */
+.saved-card-option {
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
     border-radius: 8px;
-    border: 1px solid #e0e6ed;
+    padding: 15px;
+    margin-bottom: 12px;
+    transition: all 0.2s ease;
+}
+
+.saved-card-option:hover {
+    border-color: #2a5885;
+    background-color: #f5f8ff;
+}
+
+.saved-card-option label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    margin: 0;
+}
+
+.saved-card-option input[type="radio"] {
+    margin-right: 12px;
+}
+
+.card-info {
+    display: flex;
+    align-items: center;
+}
+
+.card-info i {
+    font-size: 24px;
+    margin-right: 10px;
+    color: #2a5885;
+}
+
+.card-details {
+    font-size: 15px;
+}
+
+/* Formulário de cartão novo */
+.mp-form {
     margin-bottom: 20px;
 }
 
 .form-row {
-    margin-bottom: 15px;
+    margin-bottom: 20px;
 }
 
 .form-row label {
     display: block;
-    margin-bottom: 5px;
+    margin-bottom: 8px;
     font-weight: 500;
-    color: #555;
+    color: #444;
 }
 
-.cardForm {
-    margin-bottom: 20px;
+.card-details-row {
+    display: flex;
+    gap: 15px;
 }
 
+.card-exp {
+    flex: 1;
+}
+
+.card-cvc {
+    flex: 0 0 120px;
+}
+
+.mp-card-input {
+    height: 45px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 10px 15px;
+    background-color: white;
+    transition: border-color 0.3s ease;
+}
+
+.mp-card-input:hover, .mp-card-input:focus {
+    border-color: #2a5885;
+}
+
+.mp-card-input.mp-error {
+    border-color: #c62828;
+}
+
+input[type="text"] {
+    height: 45px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 10px 15px;
+    width: 100%;
+    transition: border-color 0.3s ease;
+}
+
+input[type="text"]:hover, input[type="text"]:focus {
+    border-color: #2a5885;
+    outline: none;
+}
+
+/* Estilos para os checkboxes */
+.checkbox-label {
+    display: flex;
+    align-items: flex-start;
+    cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+    margin-top: 3px;
+    margin-right: 10px;
+}
+
+.checkbox-label span {
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+/* Termos e condições */
+.terms-container {
+    margin: 25px 0;
+    padding: 15px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    border: 1px solid #eee;
+}
+
+.terms-container a {
+    color: #2a5885;
+    text-decoration: underline;
+}
+
+/* Botão de destaque */
 .highlight-action {
     text-align: center;
-    margin-top: 20px;
+    margin-top: 25px;
 }
 
 .highlight-button {
-    background-color: #2a5885;
+    background-color: #4CAF50;
     color: white;
     border: none;
-    border-radius: 4px;
-    padding: 12px 25px;
-    font-size: 16px;
+    border-radius: 8px;
+    padding: 15px 30px;
+    font-size: 18px;
     font-weight: 600;
     cursor: pointer;
-    transition: background-color 0.3s ease;
+    transition: all 0.3s ease;
+    display: inline-block;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .highlight-button:hover {
-    background-color: #1e3f61;
+    background-color: #45a049;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.highlight-button:active {
+    transform: translateY(0);
 }
 
 .highlight-button:disabled {
-    background-color: #aaa;
+    background-color: #9e9e9e;
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
+/* Mensagens de resultado */
 #payment-result {
     margin-top: 20px;
-    padding: 15px;
-    border-radius: 6px;
+    padding: 0;
+    border-radius: 8px;
     display: none;
 }
 
@@ -169,129 +438,71 @@
     display: none;
     background-color: #e8f5e9;
     border: 1px solid #a5d6a7;
-    padding: 15px;
-    border-radius: 6px;
+    padding: 20px;
+    border-radius: 8px;
     margin-bottom: 20px;
+    text-align: center;
+}
+
+.success-message h3 {
+    color: #2e7d32;
+    margin-top: 0;
+    font-weight: 600;
 }
 
 .success-message p {
     color: #2e7d32;
-    margin: 0;
-    font-weight: 500;
+    margin: 10px 0 0;
 }
 
 .error-message {
     display: none;
     background-color: #ffebee;
     border: 1px solid #ef9a9a;
-    padding: 15px;
-    border-radius: 6px;
+    padding: 20px;
+    border-radius: 8px;
     margin-bottom: 20px;
     color: #c62828;
     font-weight: 500;
+    text-align: center;
 }
 
-.terms-container {
-    margin: 20px 0;
-    padding: 15px;
-    background-color: #f9f9f9;
-    border-radius: 6px;
-    border: 1px solid #eee;
-}
-
-.terms-container label {
+/* Informações de segurança */
+.secure-payment-info {
     display: flex;
-    align-items: start;
+    align-items: center;
+    background-color: #f5f5f5;
+    border-radius: 8px;
+    padding: 15px;
 }
 
-.terms-container input[type="checkbox"] {
-    margin-right: 10px;
-    margin-top: 3px;
+.secure-icon {
+    margin-right: 15px;
+    font-size: 24px;
+    color: #2a5885;
 }
 
-/* Estilos para dispositivos móveis */
-@media (max-width: 768px) {
-    .highlight-container {
-        padding: 15px;
-        margin: 10px;
-    }
-    
-    .highlight-property-info {
-        flex-direction: column;
-    }
-    
-    .highlight-property-image {
-        flex: 0 0 100%;
-        max-width: 100%;
-        margin-right: 0;
-        margin-bottom: 15px;
-    }
-    
-    .highlight-property-image img {
-        max-height: 200px;
-    }
-    
-    .highlight-property-details {
-        flex: 1 1 100%;
-    }
-    
-    .highlight-title {
-        font-size: 20px;
-    }
-    
-    .highlight-button {
-        width: 100%;
-    }
+.secure-text p {
+    margin: 0;
+    font-weight: 500;
 }
 
-/* Estilos para os campos do formulário do MercadoPago */
-.mp-form {
-    margin-bottom: 20px;
+.secure-subtext {
+    font-size: 12px;
+    color: #666;
+    margin-top: 3px !important;
 }
 
-#cardNumberContainer,
-#expirationDateContainer,
-#securityCodeContainer {
-    height: 40px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    padding: 8px 12px;
-    background-color: white;
-    margin-bottom: 10px;
-}
-
-#cardNumberContainer.mp-error,
-#expirationDateContainer.mp-error,
-#securityCodeContainer.mp-error {
-    border-color: #c62828;
-}
-
-#cardholderName {
-    height: 40px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    padding: 8px 12px;
-    width: 100%;
-    margin-bottom: 10px;
-}
-
-#identificationNumber {
-    height: 40px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    padding: 8px 12px;
-    width: 100%;
-}
-
-/* Estilo para a imagem de carregamento */
+/* Loading overlay */
 .loading-overlay {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(255, 255, 255, 0.7);
+    background-color: rgba(255, 255, 255, 0.9);
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     z-index: 1000;
@@ -305,9 +516,70 @@
     width: 50px;
     height: 50px;
     animation: spin 1s linear infinite;
+    margin-bottom: 15px;
+}
+
+.loading-text {
+    font-size: 18px;
+    color: #2a5885;
+    font-weight: 500;
 }
 
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+
+/* Estilos responsivos para mobile */
+@media (max-width: 768px) {
+    .highlight-content {
+        flex-direction: column;
+        padding: 20px;
+    }
+    
+    .highlight-left-column {
+        padding-right: 0;
+        margin-bottom: 20px;
+    }
+    
+    .highlight-property-image {
+        height: 200px;
+    }
+    
+    .highlight-title {
+        font-size: 24px;
+    }
+    
+    .highlight-header {
+        padding: 20px;
+    }
+    
+    .card-details-row {
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    .card-cvc {
+        flex: 1;
+    }
+    
+    .highlight-property-features {
+        flex-direction: column;
+        gap: 10px;
+    }
+}
+
+/* Estilos para dispositivos muito pequenos */
+@media (max-width: 480px) {
+    .highlight-property-image {
+        height: 180px;
+    }
+    
+    .highlight-property-title {
+        font-size: 20px;
+    }
+    
+    .highlight-price {
+        font-size: 28px;
+    }
 } 

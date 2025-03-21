@@ -228,10 +228,6 @@ function render_highlight_payment_form($immobile_id = 0) {
     
     if (!$is_author && !$is_broker && !$is_admin) {
         echo '<div class="error-message">Você não tem permissão para destacar este imóvel.</div>';
-        
-        // Debug
-        echo '<!-- Debug: user_id=' . $current_user_id . ', author_id=' . $author_id . ', broker_id=' . $broker_id . ' -->';
-        
         return;
     }
     
@@ -252,11 +248,18 @@ function render_highlight_payment_form($immobile_id = 0) {
         return;
     }
     
-    // Obter informações do imóvel
+    // Obter informações do imóvel (garantindo que o preço seja um número válido)
     $title = get_the_title($immobile_id);
-    $price = floatval(get_post_meta($immobile_id, 'price', true));
+    $price_meta = get_post_meta($immobile_id, 'price', true);
+    $price = !empty($price_meta) ? floatval($price_meta) : 0;
     
-    // Melhorar a obtenção da imagem de destaque
+    // Garantir que o preço seja sempre exibido, mesmo que seja zero
+    if ($price <= 0) {
+        $price = get_post_meta($immobile_id, 'rent_price', true); // Alternativa: tentar preço de aluguel
+        $price = !empty($price) ? floatval($price) : 0;
+    }
+    
+    // Obter a imagem de destaque de forma segura
     $image_url = '';
     $featured_image_id = get_post_thumbnail_id($immobile_id);
     
@@ -283,27 +286,20 @@ function render_highlight_payment_form($immobile_id = 0) {
         }
     }
     
-    // Obter o preço do destaque - usa o nome correto da opção
+    // Obter o preço do destaque
     $highlight_price = floatval(get_option('highlight_payment_price', 99.90));
-    
-    // Verificar e exibir informações de debug se necessário
-    if (WP_DEBUG) {
-        error_log('Highlight Payment Form - Imóvel ID: ' . $immobile_id);
-        error_log('Highlight Payment Form - Imagem URL: ' . $image_url);
-        error_log('Highlight Payment Form - Preço: ' . $highlight_price);
-    }
-    
-    // Criar nonce para segurança
-    $nonce = wp_create_nonce('highlight_payment_nonce');
     
     // Carregar o SDK do Mercado Pago
     wp_enqueue_script('mercadopago-js', 'https://sdk.mercadopago.com/js/v2', array(), null, true);
     
     // Carregar os estilos CSS
-    wp_enqueue_style('highlight-css', get_stylesheet_directory_uri() . '/inc/custom/broker/assets/css/highlight.css', array(), '1.0.3');
+    wp_enqueue_style('highlight-css', get_stylesheet_directory_uri() . '/inc/custom/broker/assets/css/highlight.css', array(), '1.0.4');
     
     // Carregar o script de pagamento
-    wp_enqueue_script('highlight-payment-js', get_stylesheet_directory_uri() . '/inc/custom/broker/assets/js/highlight-payment.js', array('jquery'), '1.0.3', true);
+    wp_enqueue_script('highlight-payment-js', get_stylesheet_directory_uri() . '/inc/custom/broker/assets/js/highlight-payment.js', array('jquery'), '1.0.4', true);
+    
+    // Criar nonce para segurança
+    $nonce = wp_create_nonce('highlight_payment_nonce');
     
     // Passar variáveis para o script
     wp_localize_script('highlight-payment-js', 'highlight_payment', array(
@@ -314,153 +310,279 @@ function render_highlight_payment_form($immobile_id = 0) {
         'public_key' => get_option('mercadopago_public_key', '')
     ));
     
-    // Obter cartões salvos do usuário
+    // Obter cartões salvos do usuário (verificando múltiplos meta campos possíveis)
     $saved_cards = get_user_meta($current_user_id, '_saved_payment_cards', true);
+    if (empty($saved_cards) || !is_array($saved_cards)) {
+        $saved_cards = get_user_meta($current_user_id, 'mercadopago_cards', true);
+    }
     
-    // Início do HTML do formulário
+    // Também tentar outras opções de meta para cartões
+    if (empty($saved_cards) || !is_array($saved_cards)) {
+        $saved_cards = get_user_meta($current_user_id, '_mercadopago_cards', true);
+    }
+    
+    // Se ainda estiver vazio, inicializar como array
+    if (empty($saved_cards)) {
+        $saved_cards = array();
+    }
+    
+    // Obter características do imóvel para exibição
+    $address = get_post_meta($immobile_id, 'address', true);
+    $neighborhood = get_post_meta($immobile_id, 'neighborhood', true);
+    $city = get_post_meta($immobile_id, 'city', true);
+    $bedrooms = get_post_meta($immobile_id, 'bedrooms', true);
+    $bathrooms = get_post_meta($immobile_id, 'bathrooms', true);
+    $area = get_post_meta($immobile_id, 'area', true);
+    
+    // Início do HTML do formulário com o novo layout
     ?>
     <div class="highlight-container">
-        <h2 class="highlight-title">Destaque seu Imóvel</h2>
-        <p class="highlight-description">Destaque seu imóvel e aumente suas chances de venda!</p>
-        
-        <!-- Imóvel a ser destacado -->
-        <div class="highlight-property-info">
-            <div class="highlight-property-image">
-                <img src="<?php echo esc_url($image_url); ?>" alt="<?php echo esc_attr($title); ?>">
-            </div>
-            <div class="highlight-property-details">
-                <h3 class="highlight-property-title"><?php echo esc_html($title); ?></h3>
-                <p class="highlight-property-address">
-                    <?php 
-                    $address = get_post_meta($immobile_id, 'address', true);
-                    $neighborhood = get_post_meta($immobile_id, 'neighborhood', true);
-                    $city = get_post_meta($immobile_id, 'city', true);
-                    
-                    $location = array();
-                    if (!empty($address)) $location[] = $address;
-                    if (!empty($neighborhood)) $location[] = $neighborhood;
-                    if (!empty($city)) $location[] = $city;
-                    
-                    echo esc_html(implode(', ', $location));
-                    ?>
-                </p>
-                <p class="highlight-property-price">R$ <?php echo number_format($price, 2, ',', '.'); ?></p>
-            </div>
+        <div class="highlight-header">
+            <h2 class="highlight-title">Destaque seu Imóvel</h2>
+            <p class="highlight-description">Aumente a visibilidade do seu anúncio e atraia mais clientes! Imóveis em destaque aparecem no topo dos resultados de busca.</p>
         </div>
         
-        <!-- Informações do destaque -->
-        <div class="highlight-payment-info">
-            <span class="highlight-price">R$ <?php echo number_format($highlight_price, 2, ',', '.'); ?></span>
-            <p>Seu imóvel ficará em destaque por 30 dias, aparecendo no topo das buscas e com selo especial.</p>
-        </div>
-        
-        <!-- Opções de pagamento -->
-        <div class="payment-options">
-            <h3>Selecione a forma de pagamento</h3>
-            
-            <?php if (!empty($saved_cards) && is_array($saved_cards)) : ?>
-            <div class="payment-option">
-                <label>
-                    <input type="radio" name="payment_method" value="saved" checked>
-                    Usar cartão salvo
-                </label>
-                
-                <div id="saved-card-selection">
-                    <?php foreach ($saved_cards as $card) : ?>
-                    <div class="saved-card">
-                        <label>
-                            <input type="radio" name="card_id" value="<?php echo esc_attr($card['id']); ?>" checked>
-                            <?php echo sprintf('%s terminado em %s', 
-                                esc_html($card['payment_method']), 
-                                esc_html($card['last_four'])
-                            ); ?>
-                        </label>
+        <div class="highlight-content">
+            <!-- Lado esquerdo: Informações do imóvel -->
+            <div class="highlight-left-column">
+                <div class="highlight-property-card">
+                    <div class="highlight-property-image">
+                        <img src="<?php echo esc_url($image_url); ?>" alt="<?php echo esc_attr($title); ?>">
                     </div>
-                    <?php endforeach; ?>
+                    <div class="highlight-property-details">
+                        <h3 class="highlight-property-title"><?php echo esc_html($title); ?></h3>
+                        <p class="highlight-property-location">
+                            <?php 
+                            $location = array();
+                            if (!empty($address)) $location[] = $address;
+                            if (!empty($neighborhood)) $location[] = $neighborhood;
+                            if (!empty($city)) $location[] = $city;
+                            echo !empty($location) ? esc_html(implode(', ', $location)) : 'Localização não informada';
+                            ?>
+                        </p>
+                        <div class="highlight-property-features">
+                            <?php if (!empty($bedrooms)): ?>
+                            <span class="property-feature"><i class="fa fa-bed"></i> <?php echo esc_html($bedrooms); ?> <?php echo $bedrooms > 1 ? 'quartos' : 'quarto'; ?></span>
+                            <?php endif; ?>
+                            
+                            <?php if (!empty($bathrooms)): ?>
+                            <span class="property-feature"><i class="fa fa-bath"></i> <?php echo esc_html($bathrooms); ?> <?php echo $bathrooms > 1 ? 'banheiros' : 'banheiro'; ?></span>
+                            <?php endif; ?>
+                            
+                            <?php if (!empty($area)): ?>
+                            <span class="property-feature"><i class="fa fa-vector-square"></i> <?php echo esc_html($area); ?>m²</span>
+                            <?php endif; ?>
+                        </div>
+                        <p class="highlight-property-price">R$ <?php echo number_format($price, 2, ',', '.'); ?></p>
+                    </div>
+                </div>
+                
+                <div class="highlight-benefits-box">
+                    <h3>Benefícios do Destaque</h3>
+                    <ul>
+                        <li><i class="fa fa-check-circle"></i> <strong>Visibilidade superior</strong>: Seu imóvel aparece no topo dos resultados de busca</li>
+                        <li><i class="fa fa-check-circle"></i> <strong>Mais visualizações</strong>: Atraia até 4x mais cliques e visualizações</li>
+                        <li><i class="fa fa-check-circle"></i> <strong>Selo especial</strong>: Seu anúncio recebe um selo exclusivo de destaque</li>
+                        <li><i class="fa fa-check-circle"></i> <strong>Venda mais rápido</strong>: Imóveis em destaque fecham negócios 40% mais rápido</li>
+                    </ul>
                 </div>
             </div>
             
-            <div class="payment-option">
-                <label>
-                    <input type="radio" name="payment_method" value="new">
-                    Usar novo cartão
-                </label>
-            </div>
-            <?php else : ?>
-            <div class="payment-option">
-                <label>
-                    <input type="radio" name="payment_method" value="new" checked>
-                    Cartão de crédito
-                </label>
-            </div>
-            <?php endif; ?>
-            
-            <!-- Formulário para novo cartão -->
-            <div id="new-card-form" style="<?php echo (!empty($saved_cards)) ? 'display: none;' : ''; ?>">
-                <div class="mp-form">
-                    <div class="form-row">
-                        <label for="cardNumberContainer">Número do cartão</label>
-                        <div id="cardNumberContainer" class="mp-card-input"></div>
+            <!-- Lado direito: Formulário de pagamento -->
+            <div class="highlight-right-column">
+                <div class="highlight-payment-card">
+                    <div class="highlight-price-section">
+                        <span class="highlight-price-label">Valor do Destaque:</span>
+                        <span class="highlight-price">R$ <?php echo number_format($highlight_price, 2, ',', '.'); ?></span>
+                        <span class="highlight-price-period">por 30 dias de destaque</span>
                     </div>
                     
-                    <div class="form-row card-details">
-                        <div class="card-exp">
-                            <label for="expirationDateContainer">Validade</label>
-                            <div id="expirationDateContainer" class="mp-card-input"></div>
+                    <div class="payment-options-section">
+                        <h3>Forma de Pagamento</h3>
+                        
+                        <?php if (!empty($saved_cards)): ?>
+                        <div class="payment-tabs">
+                            <div class="payment-tab saved-cards-tab active" data-target="saved-cards-panel">Cartões Salvos</div>
+                            <div class="payment-tab new-card-tab" data-target="new-card-panel">Novo Cartão</div>
                         </div>
                         
-                        <div class="card-cvc">
-                            <label for="securityCodeContainer">CVV</label>
-                            <div id="securityCodeContainer" class="mp-card-input"></div>
+                        <!-- Painel de cartões salvos -->
+                        <div id="saved-cards-panel" class="payment-panel active">
+                            <?php foreach ($saved_cards as $card_id => $card): ?>
+                                <?php 
+                                // Determinar o tipo de cartão para exibir o ícone correto
+                                $card_type = isset($card['payment_method']) ? strtolower($card['payment_method']) : '';
+                                $card_icon = 'fa-credit-card'; // Ícone padrão
+                                
+                                // Definir ícone com base no tipo de cartão
+                                if (strpos($card_type, 'visa') !== false) {
+                                    $card_icon = 'fa-cc-visa';
+                                } elseif (strpos($card_type, 'master') !== false) {
+                                    $card_icon = 'fa-cc-mastercard';
+                                } elseif (strpos($card_type, 'amex') !== false) {
+                                    $card_icon = 'fa-cc-amex';
+                                } elseif (strpos($card_type, 'diners') !== false) {
+                                    $card_icon = 'fa-cc-diners-club';
+                                }
+                                
+                                // Obter últimos dígitos
+                                $last_digits = isset($card['last_four']) ? $card['last_four'] : '****';
+                                ?>
+                                <div class="saved-card-option">
+                                    <label>
+                                        <input type="radio" name="card_id" value="<?php echo esc_attr($card_id); ?>" checked>
+                                        <div class="card-info">
+                                            <i class="fab <?php echo $card_icon; ?>"></i>
+                                            <span class="card-details">
+                                                <?php echo esc_html(isset($card['payment_method']) ? $card['payment_method'] : 'Cartão'); ?> 
+                                                terminado em <?php echo esc_html($last_digits); ?>
+                                            </span>
+                                        </div>
+                                    </label>
+                                </div>
+                            <?php endforeach; ?>
                         </div>
-                    </div>
-                    
-                    <div class="form-row">
-                        <label for="cardholderName">Nome como está no cartão</label>
-                        <input type="text" id="cardholderName" name="cardholderName" placeholder="Nome como está no cartão">
-                    </div>
-                    
-                    <div class="form-row">
-                        <label for="identificationNumber">CPF do titular</label>
-                        <input type="text" id="identificationNumber" name="identificationNumber" placeholder="Apenas números">
+                        
+                        <!-- Painel de novo cartão -->
+                        <div id="new-card-panel" class="payment-panel">
+                            <div class="mp-form">
+                                <div class="form-row">
+                                    <label for="cardNumberContainer">Número do cartão</label>
+                                    <div id="cardNumberContainer" class="mp-card-input"></div>
+                                </div>
+                                
+                                <div class="form-row card-details-row">
+                                    <div class="card-exp">
+                                        <label for="expirationDateContainer">Validade</label>
+                                        <div id="expirationDateContainer" class="mp-card-input"></div>
+                                    </div>
+                                    
+                                    <div class="card-cvc">
+                                        <label for="securityCodeContainer">CVV</label>
+                                        <div id="securityCodeContainer" class="mp-card-input"></div>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-row">
+                                    <label for="cardholderName">Nome como está no cartão</label>
+                                    <input type="text" id="cardholderName" name="cardholderName" placeholder="Nome como está no cartão">
+                                </div>
+                                
+                                <div class="form-row">
+                                    <label for="identificationNumber">CPF do titular</label>
+                                    <input type="text" id="identificationNumber" name="identificationNumber" placeholder="Apenas números">
+                                </div>
+                                
+                                <div class="form-row">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="save_card" name="save_card" checked>
+                                        <span>Salvar este cartão para futuras transações</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <?php else: ?>
+                        <!-- Apenas opção de novo cartão quando não há cartões salvos -->
+                        <div class="mp-form">
+                            <div class="form-row">
+                                <label for="cardNumberContainer">Número do cartão</label>
+                                <div id="cardNumberContainer" class="mp-card-input"></div>
+                            </div>
+                            
+                            <div class="form-row card-details-row">
+                                <div class="card-exp">
+                                    <label for="expirationDateContainer">Validade</label>
+                                    <div id="expirationDateContainer" class="mp-card-input"></div>
+                                </div>
+                                
+                                <div class="card-cvc">
+                                    <label for="securityCodeContainer">CVV</label>
+                                    <div id="securityCodeContainer" class="mp-card-input"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <label for="cardholderName">Nome como está no cartão</label>
+                                <input type="text" id="cardholderName" name="cardholderName" placeholder="Nome como está no cartão">
+                            </div>
+                            
+                            <div class="form-row">
+                                <label for="identificationNumber">CPF do titular</label>
+                                <input type="text" id="identificationNumber" name="identificationNumber" placeholder="Apenas números">
+                            </div>
+                            
+                            <div class="form-row">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="save_card" name="save_card" checked>
+                                    <span>Salvar este cartão para futuras transações</span>
+                                </label>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+                        
+                        <div class="terms-container">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="accept-terms" name="accept-terms" required>
+                                <span>Concordo com os <a href="<?php echo esc_url(get_privacy_policy_url()); ?>" target="_blank">termos de uso e política de privacidade</a></span>
+                            </label>
+                        </div>
+                        
+                        <!-- Resultado do pagamento -->
+                        <div id="payment-result" style="display: none;">
+                            <div class="success-message" style="display: none;">
+                                <h3>Pagamento realizado com sucesso!</h3>
+                                <p></p>
+                            </div>
+                            <div class="error-message" style="display: none;"></div>
+                        </div>
+                        
+                        <!-- Botão de ação -->
+                        <div class="highlight-action">
+                            <button class="highlight-button" data-action="highlight-property">Destacar Imóvel Agora</button>
+                        </div>
                     </div>
                 </div>
                 
-                <div class="form-row">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="save_card" name="save_card">
-                        Salvar este cartão para futuras transações
-                    </label>
+                <div class="secure-payment-info">
+                    <div class="secure-icon"><i class="fa fa-lock"></i></div>
+                    <div class="secure-text">
+                        <p>Pagamento 100% seguro</p>
+                        <p class="secure-subtext">Processado por MercadoPago com criptografia de ponta a ponta.</p>
+                    </div>
                 </div>
             </div>
-            
-            <div class="terms-container">
-                <label class="checkbox-label">
-                    <input type="checkbox" id="accept-terms" name="accept-terms" required>
-                    Concordo com os <a href="<?php echo esc_url(get_privacy_policy_url()); ?>" target="_blank">termos de uso e política de privacidade</a>
-                </label>
-            </div>
-        </div>
-        
-        <!-- Resultado do pagamento -->
-        <div id="payment-result" style="display: none;">
-            <div class="success-message" style="display: none;">
-                <h3>Pagamento realizado com sucesso!</h3>
-                <p></p>
-            </div>
-            <div class="error-message" style="display: none;"></div>
-        </div>
-        
-        <!-- Ação de destacar -->
-        <div class="highlight-action">
-            <button class="highlight-button" data-action="highlight-property">Destacar Imóvel Agora</button>
         </div>
         
         <!-- Loading overlay -->
         <div class="loading-overlay">
             <div class="loading-spinner"></div>
+            <p class="loading-text">Processando pagamento...</p>
         </div>
     </div>
+    
+    <script>
+    // Script para alternar entre as abas de pagamento
+    jQuery(document).ready(function($) {
+        $('.payment-tab').click(function() {
+            // Remover classe active de todas as abas
+            $('.payment-tab').removeClass('active');
+            // Adicionar classe active à aba clicada
+            $(this).addClass('active');
+            
+            // Esconder todos os painéis
+            $('.payment-panel').removeClass('active');
+            // Mostrar o painel correspondente à aba
+            $('#' + $(this).data('target')).addClass('active');
+            
+            // Atualizar o método de pagamento selecionado
+            if ($(this).hasClass('saved-cards-tab')) {
+                $('input[name="payment_method"]').val('saved');
+            } else {
+                $('input[name="payment_method"]').val('new');
+            }
+        });
+    });
+    </script>
     <?php
 }
 
