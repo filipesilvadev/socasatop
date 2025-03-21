@@ -10,6 +10,9 @@ if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly
 }
 
+// Definir valores padrão
+define('HIGHLIGHT_PAYMENT_DEFAULT_PRICE', 99.90);
+
 /**
  * Renderiza a página de configurações para destacar imóveis
  *
@@ -193,344 +196,149 @@ function is_property_highlighted($property_id) {
 }
 
 /**
- * Renderiza o formulário de pagamento para destacar um imóvel
- * 
- * @param array $atts Atributos passados para a função, incluindo immobile_id
- * @return string HTML do formulário
+ * Função para renderizar o formulário de destaque
  */
-function render_highlight_payment_form($atts = array()) {
-    global $wpdb;
-    
-    // Verificar se o usuário está logado e é corretor
+function render_highlight_payment_form($immobile_id = null) {
+    // Verificar se o usuário está logado
     if (!is_user_logged_in()) {
-        return '<div class="highlight-error">Você precisa estar logado como corretor para acessar esta página.</div>';
+        return '<div class="error-message">Você precisa estar logado para destacar um imóvel.</div>';
+    }
+
+    // Obter o ID do imóvel da URL se não for fornecido
+    if (empty($immobile_id)) {
+        $immobile_id = isset($_GET['immobile_id']) ? intval($_GET['immobile_id']) : 0;
+    }
+
+    // Verificar se o ID do imóvel foi fornecido
+    if (empty($immobile_id)) {
+        return '<div class="error-message">ID do imóvel não fornecido.</div>';
+    }
+
+    // Verificar se o imóvel existe
+    $immobile = get_post($immobile_id);
+    if (!$immobile || $immobile->post_type !== 'imovel') {
+        error_log("Imóvel não encontrado: $immobile_id");
+        return '<div class="error-message">Imóvel não encontrado.</div>';
+    }
+
+    // Carregar estilos e scripts
+    wp_enqueue_style('highlight-style', get_template_directory_uri() . '/inc/custom/broker/assets/css/highlight.css', array(), '1.0.7');
+    wp_enqueue_script('mercadopago-sdk', 'https://sdk.mercadopago.com/js/v2', array(), null, true);
+    wp_enqueue_script('highlight-payment-js', get_template_directory_uri() . '/inc/custom/broker/assets/js/highlight-payment.js', array('jquery', 'mercadopago-sdk'), '1.0.7', true);
+    wp_enqueue_script('debug-js', get_template_directory_uri() . '/inc/custom/broker/assets/js/debug.js', array('jquery'), '1.0.6', true);
+
+    // Verificar se o arquivo de configuração do MercadoPago está presente
+    if (!file_exists(get_template_directory() . '/inc/custom/broker/payment-settings.php')) {
+        error_log("Arquivo de configuração do MercadoPago não encontrado");
+        return '<div class="error-message">Configuração de pagamento não encontrada.</div>';
+    }
+
+    // Incluir configurações do MercadoPago
+    require_once(get_template_directory() . '/inc/custom/broker/payment-settings.php');
+
+    // Obter a chave pública do MercadoPago com base no ambiente
+    $public_key = socasa_get_mp_public_key();
+    
+    if (empty($public_key)) {
+        error_log("Chave pública do MercadoPago não configurada");
+        return '<div class="error-message">Configuração de pagamento incompleta.</div>';
+    }
+
+    // Obter o preço do destaque
+    $price = get_option('highlight_payment_price', HIGHLIGHT_PAYMENT_DEFAULT_PRICE);
+    
+    // Se o preço for zero, tentar obter do preço de locação
+    if ($price == 0) {
+        $price = get_post_meta($immobile_id, 'property_rent_price', true);
+        
+        // Se ainda for zero, verificar outras possibilidades
+        if ($price == 0) {
+            $price_fields = array(
+                'property_price',
+                'property_rent_price',
+                '_price',
+                '_rent_price',
+                'immobile_price',
+                'immobile_rent_price'
+            );
+            
+            foreach ($price_fields as $field) {
+                $temp_price = get_post_meta($immobile_id, $field, true);
+                if (!empty($temp_price) && is_numeric($temp_price) && $temp_price > 0) {
+                    $price = $temp_price;
+                    break;
+                }
+            }
+        }
     }
     
-    $user_id = get_current_user_id();
-    $is_broker = get_user_meta($user_id, 'is_broker', true);
+    // Formatar o preço para exibição
+    $formatted_price = 'R$ ' . number_format($price, 2, ',', '.');
     
-    if (!$is_broker) {
-        return '<div class="highlight-error">Apenas corretores podem destacar imóveis.</div>';
-    }
-    
-    // Verificar se um imóvel foi selecionado
-    $immobile_id = 0;
-    
-    // Verificar se immobile_id foi passado nos atributos
-    if (isset($atts['immobile_id']) && intval($atts['immobile_id']) > 0) {
-        $immobile_id = intval($atts['immobile_id']);
-    } 
-    // Caso contrário, verificar se está na URL
-    elseif (isset($_GET['immobile_id'])) {
-        $immobile_id = intval($_GET['immobile_id']);
-    }
-    
-    if (!$immobile_id) {
-        return '<div class="highlight-error">Nenhum imóvel selecionado. <a href="' . home_url('/meus-imoveis/') . '">Clique aqui</a> para ver seus imóveis.</div>';
-    }
-    
-    // Verificar se o imóvel pertence ao corretor
-    $post = get_post($immobile_id);
-    
-    if (!$post || $post->post_author != $user_id) {
-        return '<div class="highlight-error">O imóvel selecionado não pertence a você.</div>';
-    }
-    
-    // Log para debug
-    error_log("Iniciando renderização do formulário de destaque para imóvel ID: $immobile_id");
-    
-    // Obter preço do destaque
-    $highlight_price = get_option('highlight_payment_price', 149.90);
-    // Log para depuração
-    error_log("Preço do destaque: $highlight_price para imóvel #$immobile_id");
-    
-    // Obter imagem destacada do imóvel
+    // Obter a imagem do imóvel
     $image_url = '';
     
-    // Método 1: Tentar obter a imagem destacada
-    if (has_post_thumbnail($immobile_id)) {
-        $thumbnail_id = get_post_thumbnail_id($immobile_id);
-        $image_url = wp_get_attachment_image_url($thumbnail_id, 'medium');
+    // Tentar obter a imagem destacada
+    $featured_image_id = get_post_thumbnail_id($immobile_id);
+    if ($featured_image_id) {
+        $image_url = wp_get_attachment_url($featured_image_id);
         
-        // Garantir que a URL da imagem use HTTPS
-        $image_url = str_replace('http://', 'https://', $image_url);
-    }
-    
-    // Método 2: Verificar diretório de uploads para possíveis caminhos de imagem
-    if (empty($image_url)) {
-        $upload_dir = wp_upload_dir();
-        $broker_id = get_post_meta($immobile_id, 'property_broker', true) ?: $user_id;
-        
-        // Possíveis caminhos de imagem
-        $possible_paths = [
-            'properties/' . $broker_id . '/' . $immobile_id . '/main.jpg',
-            'properties/' . $broker_id . '/' . $immobile_id . '/main.jpeg',
-            'properties/' . $broker_id . '/' . $immobile_id . '/main.png',
-            'properties/' . $broker_id . '/' . $immobile_id . '/1.jpg',
-            'properties/' . $broker_id . '/' . $immobile_id . '/1.jpeg',
-            'properties/' . $broker_id . '/' . $immobile_id . '/1.png',
-            'properties/broker-' . $broker_id . '/property-' . $immobile_id . '/main.jpg',
-            'properties/broker-' . $broker_id . '/property-' . $immobile_id . '/main.jpeg',
-            'properties/broker-' . $broker_id . '/property-' . $immobile_id . '/main.png',
-            'properties/broker-' . $broker_id . '/property-' . $immobile_id . '/1.jpg',
-            'properties/broker-' . $broker_id . '/property-' . $immobile_id . '/1.jpeg',
-            'properties/broker-' . $broker_id . '/property-' . $immobile_id . '/1.png',
-        ];
-        
-        foreach ($possible_paths as $path) {
-            $full_path = $upload_dir['basedir'] . '/' . $path;
-            $full_url = $upload_dir['baseurl'] . '/' . $path;
-            
-            if (file_exists($full_path)) {
-                $image_url = str_replace('http://', 'https://', $full_url);
-                break;
-            }
+        // Garantir que a URL seja HTTPS
+        if ($image_url && strpos($image_url, 'http://') === 0) {
+            $image_url = str_replace('http://', 'https://', $image_url);
         }
     }
     
-    // Método 3: Obter a primeira imagem da galeria
+    // Se não encontrou a imagem destacada, tentar obter a primeira imagem da galeria
     if (empty($image_url)) {
-        $gallery_images = get_post_meta($immobile_id, 'property_gallery', true);
-        
-        if (!empty($gallery_images) && is_array($gallery_images)) {
-            $first_image = reset($gallery_images);
-            
-            if (isset($first_image['url'])) {
-                $image_url = str_replace('http://', 'https://', $first_image['url']);
-            } elseif (is_numeric($first_image)) {
-                $image_url = wp_get_attachment_image_url($first_image, 'medium');
-                $image_url = str_replace('http://', 'https://', $image_url);
-            }
-        }
-    }
-    
-    // Método 4: Procurar por imagem no conteúdo do post
-    if (empty($image_url)) {
-        $content = $post->post_content;
-        $pattern = '/<img.*?src=[\'"]([^\'"]+)[\'"].*?>/i';
-        
-        if (preg_match($pattern, $content, $matches)) {
-            $image_url = str_replace('http://', 'https://', $matches[1]);
-        }
-    }
-    
-    // Método 5: Verificar meta fields comuns para imagens
-    if (empty($image_url)) {
-        $meta_fields = [
-            'property_image', 'main_image', 'featured_image', 
-            '_thumbnail_id', 'property_featured_image', 'property_main_image'
-        ];
-        
-        foreach ($meta_fields as $field) {
-            $image_meta = get_post_meta($immobile_id, $field, true);
-            
-            if (!empty($image_meta)) {
-                if (is_numeric($image_meta)) {
-                    $image_url = wp_get_attachment_image_url($image_meta, 'medium');
-                } else {
-                    $image_url = $image_meta;
-                }
+        $gallery_ids = get_post_meta($immobile_id, 'property_gallery', true);
+        if (!empty($gallery_ids) && is_array($gallery_ids)) {
+            $first_image_id = reset($gallery_ids);
+            if ($first_image_id) {
+                $image_url = wp_get_attachment_url($first_image_id);
                 
-                $image_url = str_replace('http://', 'https://', $image_url);
-                break;
+                // Garantir que a URL seja HTTPS
+                if ($image_url && strpos($image_url, 'http://') === 0) {
+                    $image_url = str_replace('http://', 'https://', $image_url);
+                }
             }
         }
     }
     
-    // Se ainda não encontrou, usar uma imagem padrão
+    // Se ainda não encontrou, usar imagem padrão
     if (empty($image_url)) {
-        $image_url = get_template_directory_uri() . '/assets/images/property-placeholder.jpg';
-        error_log("Nenhuma imagem encontrada para o imóvel #$immobile_id. Usando placeholder.");
+        $image_url = get_template_directory_uri() . '/images/no-image.jpg';
     }
     
-    // Obter dados do imóvel para exibição
-    $property_title = get_the_title($immobile_id);
-    
-    // Obter preço do imóvel
-    $property_price = get_post_meta($immobile_id, 'property_price', true);
-    $property_price = !empty($property_price) ? floatval($property_price) : 0;
-    
-    // Se o preço for zero, tentar o preço de aluguel
-    if ($property_price == 0) {
-        $property_price = get_post_meta($immobile_id, 'property_rent_price', true);
-        $property_price = !empty($property_price) ? floatval($property_price) : 0;
-    }
-    
-    // Se ainda for zero, tentar outros campos de preço comuns
-    if ($property_price == 0) {
-        $price_fields = [
-            'property_price', 'property_rent_price', '_price', '_rent_price',
-            'immobile_price', 'immobile_rent_price'
-        ];
-        
-        foreach ($price_fields as $field) {
-            $price_meta = get_post_meta($immobile_id, $field, true);
-            
-            if (!empty($price_meta) && is_numeric($price_meta)) {
-                $property_price = floatval($price_meta);
-                break;
-            }
-        }
-    }
-    
-    // Se ainda for zero, tentar encontrar o preço no conteúdo
-    if ($property_price == 0) {
-        $content = $post->post_content;
-        // Procurar por padrões como "R$ 1.000.000,00" ou "1000000"
-        $price_pattern = '/R\$\s?([0-9.,]+)|([0-9.,]+)\s?reais/i';
-        
-        if (preg_match($price_pattern, $content, $matches)) {
-            $matched_price = !empty($matches[1]) ? $matches[1] : $matches[2];
-            $property_price = preg_replace('/[^0-9]/', '', $matched_price);
-            $property_price = floatval($property_price);
-        }
-    }
-    
-    // Log para depuração
-    error_log("Preço final do imóvel #$immobile_id: R$ $property_price");
-    
-    // Formatar preço do imóvel para exibição
-    $formatted_property_price = 'R$ ' . number_format($property_price, 2, ',', '.');
-    
-    // Obter o status atual de destaque
-    $is_highlighted = get_post_meta($immobile_id, '_is_highlighted', true);
-    $highlight_expiry = get_post_meta($immobile_id, '_highlight_expiry', true);
-    $current_time = current_time('timestamp');
-    
-    // Verificar se o destaque ainda está ativo
-    $highlight_active = $is_highlighted && $highlight_expiry && $highlight_expiry > $current_time;
-    
-    // Adicionar dados para o JavaScript
-    $mp_public_key = get_option('mercadopago_public_key_test');
-    if (get_option('mercadopago_production_mode', 'no') === 'yes') {
-        $mp_public_key = get_option('mercadopago_public_key_prod');
-    }
-    
-    // Dados para o JavaScript
-    wp_localize_script('highlight-payment-js', 'highlight_payment', array(
+    // Gerar dados para o script
+    $data = array(
         'ajax_url' => admin_url('admin-ajax.php'),
         'nonce' => wp_create_nonce('highlight_payment_nonce'),
         'immobile_id' => $immobile_id,
-        'price' => $highlight_price,
-        'public_key' => $mp_public_key,
-    ));
+        'price' => $price,
+        'public_key' => $public_key,
+        'test_mode' => socasa_is_mp_test_mode(),
+    );
     
-    // Iniciar o buffer de saída
+    wp_localize_script('highlight-payment-js', 'highlight_payment', $data);
+    
+    // Iniciar captura da saída
     ob_start();
     
-    ?>
-    <div class="highlight-payment-container">
-        <h2>Destaque seu Imóvel</h2>
-        
-        <?php if ($highlight_active): ?>
-            <div class="highlight-notice success">
-                <p>Este imóvel já está destacado! O destaque expira em <?php echo date('d/m/Y H:i', $highlight_expiry); ?>.</p>
-                <p>Você pode renovar o destaque antes da data de expiração para manter seu imóvel em evidência.</p>
-            </div>
-        <?php endif; ?>
-        
-        <div class="highlight-property-info">
-            <div class="highlight-property-image">
-                <img src="<?php echo esc_url($image_url); ?>" alt="<?php echo esc_attr($property_title); ?>" />
-            </div>
-            <div class="highlight-property-details">
-                <h3><?php echo esc_html($property_title); ?></h3>
-                
-                <div class="highlight-property-price-container">
-                    <div class="highlight-property-main-price">Valor do imóvel:</div>
-                    <div class="highlight-property-price"><?php echo esc_html($formatted_property_price); ?></div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="highlight-package-info">
-            <h3>Destaque de Imóvel</h3>
-            <p>Destaque seu imóvel por 30 dias! Imóveis destacados aparecem no topo das listagens e são promovidos em nossos canais.</p>
-            <div class="highlight-package-price">
-                <span class="highlight-package-price-label">Valor:</span>
-                <span class="highlight-package-price-value">R$ <?php echo number_format($highlight_price, 2, ',', '.'); ?></span>
-            </div>
-        </div>
-        
-        <div id="payment-result" style="display: none;">
-            <div class="success-message" style="display: none;">
-                <i class="fas fa-check-circle"></i>
-                <p></p>
-            </div>
-            <div class="error-message" style="display: none;"></div>
-        </div>
-        
-        <div class="payment-options-section">
-            <h3>Formas de Pagamento</h3>
-            
-            <?php
-            // Verificar se o usuário tem cartões salvos
-            $saved_cards = get_user_meta($user_id, 'saved_cards', true);
-            $has_saved_cards = !empty($saved_cards) && is_array($saved_cards);
-            
-            if ($has_saved_cards):
-            ?>
-                <div class="payment-tabs">
-                    <div class="payment-tab saved-cards-tab active" data-target="saved-cards-panel">
-                        <i class="fas fa-credit-card"></i> Cartão Salvo
-                    </div>
-                    <div class="payment-tab new-card-tab" data-target="new-card-panel">
-                        <i class="fas fa-plus-circle"></i> Novo Cartão
-                    </div>
-                </div>
-                
-                <div class="payment-panels">
-                    <div id="saved-cards-panel" class="payment-panel active">
-                        <div class="saved-cards-list">
-                            <?php foreach ($saved_cards as $card_id => $card_info): ?>
-                                <div class="saved-card-option">
-                                    <label>
-                                        <input type="radio" name="card_id" value="<?php echo esc_attr($card_id); ?>">
-                                        <div class="card-info">
-                                            <div class="card-details">
-                                                <?php echo esc_html($card_info['type']); ?> terminado em <?php echo esc_html($card_info['last_four']); ?>
-                                            </div>
-                                        </div>
-                                    </label>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                    
-                    <div id="new-card-panel" class="payment-panel">
-                        <?php include_once(get_template_directory() . '/inc/custom/broker/payment-form.php'); ?>
-                    </div>
-                </div>
-            <?php else: ?>
-                <div id="new-card-panel" class="payment-panel active">
-                    <?php include_once(get_template_directory() . '/inc/custom/broker/payment-form.php'); ?>
-                </div>
-            <?php endif; ?>
-            
-            <div class="terms-checkbox">
-                <label>
-                    <input type="checkbox" id="accept-terms" name="accept_terms" value="1">
-                    Aceito os <a href="<?php echo home_url('/termos-de-uso/'); ?>" target="_blank">termos de uso</a> e <a href="<?php echo home_url('/politica-de-privacidade/'); ?>" target="_blank">política de privacidade</a>
-                </label>
-            </div>
-            
-            <div class="highlight-actions">
-                <button class="highlight-button" data-action="highlight-property">
-                    <?php echo $highlight_active ? 'Renovar Destaque' : 'Destacar Imóvel'; ?>
-                </button>
-            </div>
-        </div>
-        
-        <div class="loading-overlay" style="display: none;">
-            <div class="loading-spinner"></div>
-            <p>Processando pagamento...</p>
-        </div>
-    </div>
-    <?php
+    // Incluir o template do formulário
+    include(get_template_directory() . '/inc/custom/broker/payment-form.php');
     
-    // Retornar o conteúdo do buffer
+    // Retornar o formulário renderizado
     return ob_get_clean();
 }
+
+/**
+ * Registra o shortcode para o formulário de pagamento do destaque
+ */
+function register_highlight_payment_shortcode() {
+    add_shortcode('highlight_payment_form', 'highlight_payment_form_shortcode');
+}
+add_action('init', 'register_highlight_payment_shortcode');
 
 /**
  * Shortcode para renderizar o formulário de pagamento para destaque
@@ -563,7 +371,7 @@ function highlight_payment_shortcode($atts) {
     
     ob_start();
     echo '<div style="font-family: Arial, sans-serif; line-height: 1.6;">';
-    render_highlight_payment_form($atts);
+    render_highlight_payment_form($immobile_id);
     echo '</div>';
     return ob_get_clean();
 }
@@ -1358,7 +1166,11 @@ function toggle_highlight_pause() {
     $broker_id = get_post_meta($immobile_id, 'broker', true);
     $author_id = get_post_field('post_author', $immobile_id);
     
-    if (intval($broker_id) !== $current_user_id && intval($author_id) !== $current_user_id && !current_user_can('administrator')) {
+    $is_author = intval($author_id) === $current_user_id;
+    $is_broker = !empty($broker_id) && intval($broker_id) === $current_user_id;
+    $is_admin = current_user_can('administrator');
+    
+    if (!$is_author && !$is_broker && !$is_admin) {
         wp_send_json_error(array('message' => 'Você não tem permissão para modificar este imóvel.'));
         return;
     }

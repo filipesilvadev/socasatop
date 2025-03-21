@@ -1,15 +1,25 @@
 (function($) {
     $(document).ready(function() {
-        console.log('Highlight Payment JS loaded');
+        console.log('Highlight Payment JS carregado');
+        
+        // Função para adicionar logs
+        function logDebug(message, data) {
+            console.log('[MP DEBUG]', message, data);
+            if (typeof window.mpDebug === 'function') {
+                window.mpDebug(message, data);
+            }
+        }
         
         // Funções para mostrar/esconder mensagens
         function showErrorMessage(message) {
+            console.error('Erro:', message);
             $('#payment-result').show();
             $('.error-message').show().text(message);
             $('.success-message').hide();
         }
         
         function showSuccessMessage(message) {
+            console.log('Sucesso:', message);
             $('#payment-result').show();
             $('.success-message').show().find('p').text(message);
             $('.error-message').hide();
@@ -30,410 +40,150 @@
             console.error('Highlight payment data not found');
             showErrorMessage('Erro ao carregar dados do pagamento. Recarregue a página e tente novamente.');
             return;
+        } else {
+            logDebug('Highlight payment data', highlight_payment);
         }
         
-        // Função para determinar o ícone correto da bandeira do cartão
-        function getCardIcon(cardType) {
-            if (!cardType) return 'fa-credit-card';
-            
-            const cardTypeLC = cardType.toLowerCase();
-            
-            if (cardTypeLC.includes('visa')) {
-                return 'fa-cc-visa';
-            } else if (cardTypeLC.includes('master')) {
-                return 'fa-cc-mastercard';
-            } else if (cardTypeLC.includes('amex') || cardTypeLC.includes('american')) {
-                return 'fa-cc-amex';
-            } else if (cardTypeLC.includes('diners')) {
-                return 'fa-cc-diners-club';
-            } else if (cardTypeLC.includes('discover')) {
-                return 'fa-cc-discover';
-            } else if (cardTypeLC.includes('jcb')) {
-                return 'fa-cc-jcb';
-            } else if (cardTypeLC.includes('elo')) {
-                return 'fa-cc-elo';
-            } else if (cardTypeLC.includes('hipercard')) {
-                return 'fa-credit-card';
-            } else {
-                return 'fa-credit-card';
-            }
-        }
-        
-        // Atualizar os ícones de cartão para cartões salvos
-        function updateSavedCardIcons() {
-            $('.saved-card-option').each(function() {
-                const cardLabel = $(this).find('.card-details').text();
-                let cardType = '';
-                
-                // Tentar extrair o tipo de cartão do texto
-                if (cardLabel.toLowerCase().includes('visa')) {
-                    cardType = 'visa';
-                } else if (cardLabel.toLowerCase().includes('master')) {
-                    cardType = 'mastercard';
-                } else if (cardLabel.toLowerCase().includes('amex')) {
-                    cardType = 'amex';
-                } else if (cardLabel.toLowerCase().includes('diners')) {
-                    cardType = 'diners';
-                } else if (cardLabel.toLowerCase().includes('elo')) {
-                    cardType = 'elo';
-                } else if (cardLabel.toLowerCase().includes('hipercard')) {
-                    cardType = 'hipercard';
+        // Função para criar um token de cartão
+        function createCardToken(cardData) {
+            return new Promise((resolve, reject) => {
+                if (typeof MercadoPago === 'undefined') {
+                    reject(new Error('SDK MercadoPago não está disponível'));
+                    return;
                 }
                 
-                // Se encontrou um tipo, atualizar o ícone
-                if (cardType) {
-                    const icon = getCardIcon(cardType);
-                    const iconElement = $(this).find('.card-info i');
+                try {
+                    const mp = new MercadoPago(highlight_payment.public_key);
                     
-                    if (iconElement.length) {
-                        iconElement.attr('class', 'fab ' + icon);
-                    } else {
-                        $(this).find('.card-info').prepend('<i class="fab ' + icon + '"></i>');
-                    }
+                    mp.createCardToken(cardData)
+                        .then(function(result) {
+                            if (result.error) {
+                                reject(new Error(result.error));
+                            } else {
+                                resolve(result);
+                            }
+                        })
+                        .catch(function(error) {
+                            reject(error);
+                        });
+                } catch (error) {
+                    reject(error);
                 }
             });
         }
         
-        // Variáveis para armazenar referências
-        let mpInstance = null;
-        let cardForm = null;
-        
-        // Função para inicializar o MercadoPago
-        function initializeMercadoPago() {
-            // Verificar se a biblioteca MercadoPago está disponível
-            if (typeof MercadoPago === 'undefined') {
-                console.error('MercadoPago SDK não está disponível');
-                
-                // Carregar o SDK do MercadoPago manualmente
-                const script = document.createElement('script');
-                script.src = 'https://sdk.mercadopago.com/js/v2';
-                script.onload = function() {
-                    console.log('MercadoPago SDK carregado manualmente');
-                    if (typeof MercadoPago !== 'undefined') {
-                        initializeMercadoPago();
-                    } else {
-                        showErrorMessage('Não foi possível carregar o SDK do MercadoPago. Recarregue a página ou tente novamente mais tarde.');
-                    }
-                };
-                script.onerror = function() {
-                    console.error('Erro ao carregar o SDK do MercadoPago manualmente');
-                    showErrorMessage('Não foi possível carregar o SDK do MercadoPago. Verifique sua conexão com a internet.');
-                };
-                document.head.appendChild(script);
-                return;
-            }
-            
-            try {
-                // Verificar se a chave pública está presente
-                if (!highlight_payment.public_key) {
-                    console.error('MercadoPago public key is missing');
-                    showErrorMessage('Erro de configuração: Chave pública do MercadoPago não encontrada.');
-                    return;
-                }
-                
-                console.log('Inicializando MercadoPago com chave:', highlight_payment.public_key);
-                mpInstance = new MercadoPago(highlight_payment.public_key);
-                console.log('MercadoPago SDK inicializado com sucesso');
-                
-                // Inicializar o formulário de cartão
-                initializeCardForm();
-                
-                // Atualizar ícones dos cartões salvos
-                updateSavedCardIcons();
-            } catch (e) {
-                console.error('Erro ao inicializar MercadoPago:', e);
-                showErrorMessage('Erro ao inicializar o gateway de pagamento: ' + (e.message || 'Verifique as configurações do MercadoPago.'));
-            }
-        }
-        
-        // Função para inicializar o formulário de cartão
-        function initializeCardForm() {
-            // Verificar se os elementos necessários existem
-            const cardNumberElement = document.getElementById('cardNumberContainer');
-            const expirationDateElement = document.getElementById('expirationDateContainer');
-            const securityCodeElement = document.getElementById('securityCodeContainer');
-            
-            if (!cardNumberElement || !expirationDateElement || !securityCodeElement) {
-                console.warn('Elementos do formulário de cartão não encontrados');
-                return;
-            }
-            
-            console.log('Elementos do formulário de cartão encontrados, inicializando...');
-            
-            try {
-                // Definir configurações padrão
-                const defaultSettings = {
-                    amount: parseFloat(highlight_payment.price || 99.90),
-                    autoMount: true,
-                    form: {
-                        id: "new-card-panel",
-                        cardholderName: {
-                            id: "cardholderName",
-                            placeholder: "Nome como está no cartão",
-                        },
-                        cardNumber: {
-                            id: "cardNumberContainer",
-                            placeholder: "Número do cartão",
-                        },
-                        expirationDate: {
-                            id: "expirationDateContainer",
-                            placeholder: "MM/YY",
-                        },
-                        securityCode: {
-                            id: "securityCodeContainer",
-                            placeholder: "CVV",
-                        }
-                    },
-                    callbacks: {
-                        onFormMounted: function(error) {
-                            if (error) {
-                                console.error("Erro ao montar formulário:", error);
-                                showErrorMessage("Erro ao carregar formulário de pagamento: " + error);
-                            } else {
-                                console.log("Formulário de cartão montado com sucesso");
-                            }
-                        },
-                        onFormUnmounted: function(error) {
-                            if (error) {
-                                console.error("Erro ao desmontar formulário:", error);
-                            }
-                        },
-                        onIdentificationTypesReceived: function(error, identificationTypes) {
-                            if (error) {
-                                console.error("Erro ao obter tipos de identificação:", error);
-                            }
-                        },
-                        onPaymentMethodsReceived: function(error, paymentMethods) {
-                            if (error) {
-                                console.error("Erro ao obter métodos de pagamento:", error);
-                            }
-                        },
-                        onIssuersReceived: function(error, issuers) {
-                            if (error) {
-                                console.error("Erro ao obter emissores:", error);
-                            }
-                        },
-                        onCardTokenReceived: function(error, token) {
-                            if (error) {
-                                console.error("Erro ao obter token do cartão:", error);
-                            }
-                        },
-                        onFetching: function(resource) {
-                            console.log("Buscando recurso:", resource);
-                        },
-                        onSubmit: function(event) {
-                            if (event && event.preventDefault) {
-                                event.preventDefault();
-                            }
-                            console.log("Submit do formulário interceptado");
-                        },
-                        onValidityChange: function(error, field) {
-                            // Destacar visualmente campos com erro
-                            if (error) {
-                                console.log(`Campo ${field} inválido:`, error);
-                                $(`#${field}`).addClass('mp-error');
-                            } else {
-                                $(`#${field}`).removeClass('mp-error');
-                            }
-                        }
-                    }
-                };
-                
-                // Criar o formulário
-                if (!mpInstance) {
-                    throw new Error('MercadoPago SDK não inicializado corretamente');
-                }
-                
-                if (!mpInstance.cardForm) {
-                    throw new Error('MercadoPago SDK não possui o método cardForm');
-                }
-                
-                cardForm = mpInstance.cardForm(defaultSettings);
-                console.log('Formulário de cartão inicializado com sucesso');
-            } catch (e) {
-                console.error('Erro ao inicializar formulário de cartão:', e);
-                showErrorMessage('Erro ao configurar formulário de pagamento: ' + (e.message || 'Erro desconhecido'));
-            }
-        }
-        
-        // Inicializar MercadoPago
-        initializeMercadoPago();
-        
-        // Controle de abas de pagamento
-        $('.payment-tab').on('click', function() {
-            const targetPanel = $(this).data('target');
-            
-            // Remover classe ativa de todas as abas
-            $('.payment-tab').removeClass('active');
-            $(this).addClass('active');
-            
-            // Esconder todos os painéis
-            $('.payment-panel').removeClass('active');
-            
-            // Mostrar o painel selecionado
-            $('#' + targetPanel).addClass('active');
-        });
-        
-        // Anexar evento de clique no botão de destaque
-        $('.highlight-button[data-action="highlight-property"]').on('click', function(e) {
-            e.preventDefault();
-            
-            // Verificar se os termos foram aceitos
-            if ($('#accept-terms').length && !$('#accept-terms').is(':checked')) {
-                showErrorMessage('Você precisa aceitar os termos de uso para continuar.');
-                return;
-            }
-            
-            // Determinar qual método de pagamento está selecionado
-            let paymentMethod = 'new';
-            
-            // Se temos abas de pagamento, verificar qual está ativa
-            if ($('.payment-tab').length > 0) {
-                paymentMethod = $('.payment-tab.active').hasClass('saved-cards-tab') ? 'saved' : 'new';
-            }
-            
-            // Processar pagamento conforme o método selecionado
-            if (paymentMethod === 'saved') {
-                // Verificar se um cartão salvo está selecionado
-                const selectedCardId = $('input[name="card_id"]:checked').val();
-                
-                if (!selectedCardId) {
-                    showErrorMessage('Selecione um cartão para continuar.');
-                    return;
-                }
-                
-                // Confirmar antes de processar
-                if (confirm('Confirmar pagamento com o cartão selecionado?')) {
-                    processPaymentWithSavedCard(selectedCardId);
-                }
-            } else {
-                // Novo cartão
-                if (!cardForm) {
-                    showErrorMessage('Erro ao processar pagamento. Formulário não inicializado.');
-                    return;
-                }
-                
-                // Verificar se o CPF foi preenchido
-                const cpf = $('#identificationNumber').val().trim();
-                if (!cpf) {
-                    showErrorMessage('Por favor, informe o CPF do titular do cartão.');
-                    return;
-                }
-                
-                // Confirmar antes de processar
-                if (confirm('Confirmar pagamento com novo cartão?')) {
-                    processPaymentWithNewCard();
-                }
-            }
-        });
-        
-        // Função para processar pagamento com cartão salvo
-        function processPaymentWithSavedCard(cardId) {
-            showLoading(true);
-            
-            // Obter outros dados do pagamento
-            const data = {
-                action: 'highlight_payment_process',
-                nonce: highlight_payment.nonce,
-                immobile_id: highlight_payment.immobile_id,
-                payment_method: 'saved',
-                card_id: cardId
-            };
-            
-            // Enviar requisição para processar o pagamento
-            $.ajax({
-                url: highlight_payment.ajax_url,
-                type: 'POST',
-                data: data,
-                success: handlePaymentResponse,
-                error: handlePaymentError
-            });
-        }
-        
-        // Função para processar pagamento com novo cartão
-        function processPaymentWithNewCard() {
-            showLoading(true);
-            
-            // Verificar se cardForm existe e tem o método createCardToken
-            if (!cardForm || typeof cardForm.createCardToken !== 'function') {
-                showLoading(false);
-                showErrorMessage('Erro ao processar pagamento: formulário não inicializado corretamente');
-                console.error('cardForm não está inicializado corretamente', cardForm);
-                return;
-            }
-            
-            // Obter token do cartão via SDK
-            cardForm.createCardToken()
-                .then(function(response) {
-                    if (response.error) {
-                        showLoading(false);
-                        showErrorMessage('Erro ao processar cartão: ' + response.error);
-                        return;
-                    }
-                    
-                    // Obter dados adicionais
-                    const saveCard = $('#save_card').is(':checked');
-                    const cpf = $('#identificationNumber').val().trim();
-                    
-                    // Preparar dados para a requisição
-                    const data = {
+        // Processar pagamento com o token do cartão
+        function processPayment(tokenData) {
+            return new Promise((resolve, reject) => {
+                $.ajax({
+                    url: highlight_payment.ajax_url,
+                    type: 'POST',
+                    dataType: 'json',
+                    data: {
                         action: 'highlight_payment_process',
                         nonce: highlight_payment.nonce,
                         immobile_id: highlight_payment.immobile_id,
-                        payment_method: 'new',
-                        token: response.token,
-                        payment_method_id: response.payment_method_id,
-                        issuer_id: response.issuer_id,
-                        identification_number: cpf,
-                        save_card: saveCard
-                    };
-                    
-                    // Enviar requisição para processar o pagamento
-                    $.ajax({
-                        url: highlight_payment.ajax_url,
-                        type: 'POST',
-                        data: data,
-                        success: handlePaymentResponse,
-                        error: handlePaymentError
-                    });
-                })
-                .catch(function(error) {
-                    showLoading(false);
-                    console.error('Erro ao criar token do cartão:', error);
-                    showErrorMessage('Erro ao processar cartão: ' + (error.message || 'Verifique os dados e tente novamente.'));
+                        token: tokenData.id,
+                        payment_method_id: tokenData.payment_method_id,
+                        issuer_id: tokenData.issuer.id,
+                        identification_number: $('#identificationNumber').val().replace(/\D/g, ''),
+                        save_card: $('#save_card').is(':checked')
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            resolve(response);
+                        } else {
+                            reject(new Error(response.data && response.data.message ? response.data.message : 'Erro ao processar pagamento.'));
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        reject(new Error('Erro na comunicação com o servidor: ' + error));
+                    }
                 });
+            });
         }
         
-        // Função para tratar resposta do pagamento
-        function handlePaymentResponse(response) {
-            showLoading(false);
-            console.log('Resposta do pagamento:', response);
+        // Lidar com evento de clique no botão
+        $('#highlight-button').on('click', function(event) {
+            event.preventDefault();
             
-            if (response.success) {
-                // Exibir mensagem de sucesso
-                showSuccessMessage(response.data.message || 'Pagamento processado com sucesso!');
-                
-                // Esconder formulário de pagamento
-                $('.payment-options-section').slideUp();
-                
-                // Redirecionar se houver URL
-                if (response.data.redirect_url) {
-                    setTimeout(function() {
-                        window.location.href = response.data.redirect_url;
-                    }, 2000);
-                }
-            } else {
-                // Exibir mensagem de erro
-                showErrorMessage(response.data.message || 'Erro ao processar pagamento. Tente novamente.');
+            // Validar formulário
+            const cardholderName = $('#cardholderName').val().trim();
+            const cardNumber = $('#cardNumber').val().replace(/\D/g, '');
+            const expirationMonth = $('#cardExpirationMonth').val();
+            const expirationYear = $('#cardExpirationYear').val();
+            const securityCode = $('#securityCode').val().trim();
+            const identificationNumber = $('#identificationNumber').val().replace(/\D/g, '');
+            
+            // Verificar se todos os campos estão preenchidos
+            if (!cardholderName) {
+                showErrorMessage('Por favor, preencha o nome que está no cartão.');
+                return;
             }
-        }
-        
-        // Função para tratar erro na requisição
-        function handlePaymentError(xhr, status, error) {
-            showLoading(false);
-            console.error('Erro na requisição AJAX:', status, error);
-            showErrorMessage('Erro na comunicação com o servidor: ' + error);
-        }
+            
+            if (!cardNumber || cardNumber.length < 14) {
+                showErrorMessage('Por favor, informe um número de cartão válido.');
+                return;
+            }
+            
+            if (!securityCode) {
+                showErrorMessage('Por favor, informe o código de segurança do cartão.');
+                return;
+            }
+            
+            if (!identificationNumber || identificationNumber.length < 11) {
+                showErrorMessage('Por favor, informe um CPF válido.');
+                return;
+            }
+            
+            // Verificar se os termos foram aceitos
+            if ($('#termsAccepted').length > 0 && !$('#termsAccepted').is(':checked')) {
+                showErrorMessage('Você precisa aceitar os termos e condições para continuar.');
+                return;
+            }
+            
+            // Mostrar loading
+            showLoading(true);
+            
+            // Construir dados do cartão
+            const cardData = {
+                cardholderName: cardholderName,
+                cardNumber: cardNumber,
+                cardExpirationMonth: expirationMonth,
+                cardExpirationYear: expirationYear,
+                securityCode: securityCode,
+                identificationType: 'CPF',
+                identificationNumber: identificationNumber
+            };
+            
+            logDebug('Criando token de cartão com os dados', cardData);
+            
+            // Criar token e processar pagamento
+            createCardToken(cardData)
+                .then(tokenData => {
+                    logDebug('Token criado com sucesso', tokenData);
+                    return processPayment(tokenData);
+                })
+                .then(response => {
+                    showLoading(false);
+                    showSuccessMessage(response.data.message || 'Pagamento processado com sucesso!');
+                    
+                    // Esconder formulário
+                    $('.highlight-payment-form').slideUp();
+                    
+                    // Redirecionar se necessário
+                    if (response.data && response.data.redirect_url) {
+                        setTimeout(function() {
+                            window.location.href = response.data.redirect_url;
+                        }, 2000);
+                    }
+                })
+                .catch(error => {
+                    showLoading(false);
+                    showErrorMessage(error.message || 'Erro ao processar pagamento. Tente novamente.');
+                    console.error('Erro durante o processamento do pagamento:', error);
+                });
+        });
         
         // Máscara para CPF
         $('#identificationNumber').on('input', function() {
@@ -453,5 +203,32 @@
             
             $(this).val(value);
         });
+        
+        // Máscara para número do cartão
+        $('#cardNumber').on('input', function() {
+            let value = $(this).val().replace(/\D/g, '');
+            
+            if (value.length > 16) {
+                value = value.substring(0, 16);
+            }
+            
+            // Formatar número do cartão em grupos de 4
+            value = value.replace(/(\d{4})(?=\d)/g, '$1 ');
+            
+            $(this).val(value);
+        });
+        
+        // Máscara para CVV
+        $('#securityCode').on('input', function() {
+            let value = $(this).val().replace(/\D/g, '');
+            
+            if (value.length > 4) {
+                value = value.substring(0, 4);
+            }
+            
+            $(this).val(value);
+        });
+        
+        logDebug('Script de pagamento inicializado');
     });
 })(jQuery); 
