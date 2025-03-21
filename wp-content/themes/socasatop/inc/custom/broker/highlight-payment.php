@@ -255,19 +255,43 @@ function render_highlight_payment_form($immobile_id = 0) {
     // Obter informações do imóvel
     $title = get_the_title($immobile_id);
     $price = floatval(get_post_meta($immobile_id, 'price', true));
-    $featured_image_id = get_post_thumbnail_id($immobile_id);
-    $featured_image_url = wp_get_attachment_image_src($featured_image_id, 'medium');
     
-    // Garantir que a URL da imagem use HTTPS
-    if ($featured_image_url) {
-        $image_url = $featured_image_url[0];
-        $image_url = str_replace('http://', 'https://', $image_url);
-    } else {
-        $image_url = get_stylesheet_directory_uri() . '/inc/custom/broker/assets/images/no-image.jpg';
+    // Melhorar a obtenção da imagem de destaque
+    $image_url = '';
+    $featured_image_id = get_post_thumbnail_id($immobile_id);
+    
+    if ($featured_image_id) {
+        $featured_image_url = wp_get_attachment_image_src($featured_image_id, 'medium');
+        if ($featured_image_url && isset($featured_image_url[0])) {
+            $image_url = $featured_image_url[0];
+            // Garantir que a URL da imagem use HTTPS
+            $image_url = str_replace('http://', 'https://', $image_url);
+        }
+    } 
+    
+    // Se não encontrou imagem ou não existe imagem destacada
+    if (empty($image_url)) {
+        // Caminho para uma imagem padrão
+        $placeholder_path = '/inc/custom/broker/assets/images/no-image.jpg';
+        $placeholder_file = get_stylesheet_directory() . $placeholder_path;
+        
+        if (file_exists($placeholder_file)) {
+            $image_url = get_stylesheet_directory_uri() . $placeholder_path;
+        } else {
+            // Fallback para placeholder online
+            $image_url = 'https://via.placeholder.com/400x300?text=Sem+Imagem';
+        }
     }
     
-    // Obter o preço do destaque
-    $highlight_price = floatval(get_option('highlight_price', 30));
+    // Obter o preço do destaque - usa o nome correto da opção
+    $highlight_price = floatval(get_option('highlight_payment_price', 99.90));
+    
+    // Verificar e exibir informações de debug se necessário
+    if (WP_DEBUG) {
+        error_log('Highlight Payment Form - Imóvel ID: ' . $immobile_id);
+        error_log('Highlight Payment Form - Imagem URL: ' . $image_url);
+        error_log('Highlight Payment Form - Preço: ' . $highlight_price);
+    }
     
     // Criar nonce para segurança
     $nonce = wp_create_nonce('highlight_payment_nonce');
@@ -276,10 +300,10 @@ function render_highlight_payment_form($immobile_id = 0) {
     wp_enqueue_script('mercadopago-js', 'https://sdk.mercadopago.com/js/v2', array(), null, true);
     
     // Carregar os estilos CSS
-    wp_enqueue_style('highlight-css', get_stylesheet_directory_uri() . '/inc/custom/broker/assets/css/highlight.css', array(), '1.0.2');
+    wp_enqueue_style('highlight-css', get_stylesheet_directory_uri() . '/inc/custom/broker/assets/css/highlight.css', array(), '1.0.3');
     
     // Carregar o script de pagamento
-    wp_enqueue_script('highlight-payment-js', get_stylesheet_directory_uri() . '/inc/custom/broker/assets/js/highlight-payment.js', array('jquery'), '1.0.2', true);
+    wp_enqueue_script('highlight-payment-js', get_stylesheet_directory_uri() . '/inc/custom/broker/assets/js/highlight-payment.js', array('jquery'), '1.0.3', true);
     
     // Passar variáveis para o script
     wp_localize_script('highlight-payment-js', 'highlight_payment', array(
@@ -295,42 +319,39 @@ function render_highlight_payment_form($immobile_id = 0) {
     
     // Início do HTML do formulário
     ?>
-    <div class="highlight-payment-container">
-        <h2>Destaque seu Imóvel</h2>
+    <div class="highlight-container">
+        <h2 class="highlight-title">Destaque seu Imóvel</h2>
+        <p class="highlight-description">Destaque seu imóvel e aumente suas chances de venda!</p>
         
-        <!-- Benefícios do destaque -->
-        <div class="highlight-benefits">
-            <h3>Benefícios do Destaque</h3>
-            <ul>
-                <li>Seu imóvel aparecerá no topo dos resultados de busca</li>
-                <li>Mais visibilidade para potenciais compradores ou locatários</li>
-                <li>Aumente suas chances de fechar negócio rapidamente</li>
-                <li>Destaque-se da concorrência</li>
-            </ul>
-        </div>
-        
-        <!-- Pré-visualização do imóvel -->
-        <div class="property-preview">
-            <h3>Imóvel a ser destacado</h3>
-            <div class="property-card">
-                <div class="property-image">
-                    <img src="<?php echo esc_url($image_url); ?>" alt="<?php echo esc_attr($title); ?>">
-                </div>
-                <div class="property-details">
-                    <h4><?php echo esc_html($title); ?></h4>
-                    <p class="property-price">R$ <?php echo number_format($price, 2, ',', '.'); ?></p>
-                </div>
+        <!-- Imóvel a ser destacado -->
+        <div class="highlight-property-info">
+            <div class="highlight-property-image">
+                <img src="<?php echo esc_url($image_url); ?>" alt="<?php echo esc_attr($title); ?>">
+            </div>
+            <div class="highlight-property-details">
+                <h3 class="highlight-property-title"><?php echo esc_html($title); ?></h3>
+                <p class="highlight-property-address">
+                    <?php 
+                    $address = get_post_meta($immobile_id, 'address', true);
+                    $neighborhood = get_post_meta($immobile_id, 'neighborhood', true);
+                    $city = get_post_meta($immobile_id, 'city', true);
+                    
+                    $location = array();
+                    if (!empty($address)) $location[] = $address;
+                    if (!empty($neighborhood)) $location[] = $neighborhood;
+                    if (!empty($city)) $location[] = $city;
+                    
+                    echo esc_html(implode(', ', $location));
+                    ?>
+                </p>
+                <p class="highlight-property-price">R$ <?php echo number_format($price, 2, ',', '.'); ?></p>
             </div>
         </div>
         
-        <!-- Valor do destaque -->
-        <div class="highlight-pricing">
-            <h3>Valor do destaque</h3>
-            <div class="price-box">
-                <span class="price-label">Valor por 30 dias:</span>
-                <span class="price-value">R$ <?php echo number_format($highlight_price, 2, ',', '.'); ?></span>
-            </div>
-            <p class="price-info">O destaque tem duração de 30 dias e pode ser pausado a qualquer momento.</p>
+        <!-- Informações do destaque -->
+        <div class="highlight-payment-info">
+            <span class="highlight-price">R$ <?php echo number_format($highlight_price, 2, ',', '.'); ?></span>
+            <p>Seu imóvel ficará em destaque por 30 dias, aparecendo no topo das buscas e com selo especial.</p>
         </div>
         
         <!-- Opções de pagamento -->
@@ -376,31 +397,33 @@ function render_highlight_payment_form($immobile_id = 0) {
             
             <!-- Formulário para novo cartão -->
             <div id="new-card-form" style="<?php echo (!empty($saved_cards)) ? 'display: none;' : ''; ?>">
-                <div class="form-row">
-                    <label for="cardNumberContainer">Número do cartão</label>
-                    <div id="cardNumberContainer" class="mp-card-input"></div>
-                </div>
-                
-                <div class="form-row card-details">
-                    <div class="card-exp">
-                        <label for="expirationDateContainer">Validade</label>
-                        <div id="expirationDateContainer" class="mp-card-input"></div>
+                <div class="mp-form">
+                    <div class="form-row">
+                        <label for="cardNumberContainer">Número do cartão</label>
+                        <div id="cardNumberContainer" class="mp-card-input"></div>
                     </div>
                     
-                    <div class="card-cvc">
-                        <label for="securityCodeContainer">CVV</label>
-                        <div id="securityCodeContainer" class="mp-card-input"></div>
+                    <div class="form-row card-details">
+                        <div class="card-exp">
+                            <label for="expirationDateContainer">Validade</label>
+                            <div id="expirationDateContainer" class="mp-card-input"></div>
+                        </div>
+                        
+                        <div class="card-cvc">
+                            <label for="securityCodeContainer">CVV</label>
+                            <div id="securityCodeContainer" class="mp-card-input"></div>
+                        </div>
                     </div>
-                </div>
-                
-                <div class="form-row">
-                    <label for="cardholderName">Nome como está no cartão</label>
-                    <input type="text" id="cardholderName" name="cardholderName" placeholder="Nome como está no cartão">
-                </div>
-                
-                <div class="form-row">
-                    <label for="identificationNumber">CPF do titular</label>
-                    <input type="text" id="identificationNumber" name="identificationNumber" placeholder="Apenas números">
+                    
+                    <div class="form-row">
+                        <label for="cardholderName">Nome como está no cartão</label>
+                        <input type="text" id="cardholderName" name="cardholderName" placeholder="Nome como está no cartão">
+                    </div>
+                    
+                    <div class="form-row">
+                        <label for="identificationNumber">CPF do titular</label>
+                        <input type="text" id="identificationNumber" name="identificationNumber" placeholder="Apenas números">
+                    </div>
                 </div>
                 
                 <div class="form-row">
@@ -411,7 +434,7 @@ function render_highlight_payment_form($immobile_id = 0) {
                 </div>
             </div>
             
-            <div class="terms-acceptance">
+            <div class="terms-container">
                 <label class="checkbox-label">
                     <input type="checkbox" id="accept-terms" name="accept-terms" required>
                     Concordo com os <a href="<?php echo esc_url(get_privacy_policy_url()); ?>" target="_blank">termos de uso e política de privacidade</a>
@@ -430,294 +453,14 @@ function render_highlight_payment_form($immobile_id = 0) {
         
         <!-- Ação de destacar -->
         <div class="highlight-action">
-            <button class="highlight-button" id="process-payment" data-action="highlight-property">Destacar Imóvel Agora</button>
+            <button class="highlight-button" data-action="highlight-property">Destacar Imóvel Agora</button>
+        </div>
+        
+        <!-- Loading overlay -->
+        <div class="loading-overlay">
+            <div class="loading-spinner"></div>
         </div>
     </div>
-    
-    <?php if (!wp_style_is('highlight-css', 'enqueued')) : ?>
-    <style>
-        /* Estilos para a página de destaque de imóveis */
-        .highlight-payment-container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #fff;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        
-        .highlight-payment-container h2 {
-            color: #333;
-            margin-bottom: 15px;
-            text-align: center;
-            font-size: 24px;
-        }
-        
-        .highlight-payment-container h3 {
-            color: #333;
-            margin-top: 0;
-            margin-bottom: 15px;
-            font-size: 18px;
-        }
-        
-        /* Benefícios do destaque */
-        .highlight-benefits {
-            margin: 20px 0;
-            padding: 15px;
-            background-color: #f9f9f9;
-            border-radius: 6px;
-        }
-        
-        .highlight-benefits ul {
-            padding-left: 20px;
-            margin-bottom: 0;
-        }
-        
-        .highlight-benefits li {
-            margin-bottom: 8px;
-            position: relative;
-        }
-        
-        .highlight-benefits li:last-child {
-            margin-bottom: 0;
-        }
-        
-        /* Preview do imóvel */
-        .property-preview {
-            margin: 20px 0;
-        }
-        
-        .property-card {
-            display: flex;
-            background-color: #f9f9f9;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        
-        .property-image {
-            width: 40%;
-            height: 200px;
-            overflow: hidden;
-        }
-        
-        .property-image img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        
-        .property-details {
-            width: 60%;
-            padding: 15px;
-        }
-        
-        .property-details h4 {
-            margin-top: 0;
-            margin-bottom: 10px;
-            color: #333;
-            font-size: 16px;
-        }
-        
-        .property-price {
-            font-size: 18px;
-            font-weight: bold;
-            color: #4CAF50;
-            margin-bottom: 0;
-        }
-        
-        /* Preço do destaque */
-        .highlight-pricing {
-            margin: 20px 0;
-            padding: 15px;
-            background-color: #f9f9f9;
-            border-radius: 6px;
-            text-align: center;
-        }
-        
-        .price-box {
-            margin: 15px 0;
-        }
-        
-        .price-label {
-            font-size: 16px;
-            color: #666;
-            margin-right: 10px;
-        }
-        
-        .price-value {
-            font-size: 22px;
-            font-weight: bold;
-            color: #4CAF50;
-        }
-        
-        .price-info {
-            color: #666;
-            font-size: 14px;
-            margin-bottom: 0;
-        }
-        
-        /* Opções de pagamento */
-        .payment-options {
-            margin: 20px 0;
-            padding: 15px;
-            background-color: #f9f9f9;
-            border-radius: 6px;
-        }
-        
-        .payment-option {
-            margin-bottom: 15px;
-        }
-        
-        .payment-option label {
-            display: flex;
-            align-items: center;
-            cursor: pointer;
-        }
-        
-        .payment-option input[type="radio"] {
-            margin-right: 10px;
-        }
-        
-        #saved-card-selection {
-            margin-top: 10px;
-            margin-left: 25px;
-        }
-        
-        .saved-card {
-            margin-bottom: 10px;
-            padding: 10px;
-            background-color: #fff;
-            border-radius: 4px;
-            border: 1px solid #ddd;
-        }
-        
-        .saved-card label {
-            display: flex;
-            align-items: center;
-            cursor: pointer;
-        }
-        
-        /* Formulário do novo cartão */
-        #new-card-form {
-            margin-top: 15px;
-        }
-        
-        .form-row {
-            margin-bottom: 15px;
-        }
-        
-        .form-row label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 500;
-        }
-        
-        .mp-card-input {
-            height: 40px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            background-color: #fff;
-        }
-        
-        .card-details {
-            display: flex;
-            gap: 15px;
-        }
-        
-        .card-exp, .card-cvc {
-            flex: 1;
-        }
-        
-        #cardholderName, #identificationNumber {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            background-color: #fff;
-        }
-        
-        .checkbox-label {
-            display: flex;
-            align-items: center;
-            cursor: pointer;
-        }
-        
-        .checkbox-label input[type="checkbox"] {
-            margin-right: 10px;
-        }
-        
-        /* Termos de uso */
-        .terms-acceptance {
-            margin-top: 20px;
-            margin-bottom: 15px;
-        }
-        
-        .terms-acceptance a {
-            color: #1e88e5;
-            text-decoration: none;
-        }
-        
-        .terms-acceptance a:hover {
-            text-decoration: underline;
-        }
-        
-        /* Botão de destaque */
-        .highlight-action {
-            text-align: center;
-            margin: 25px 0 10px;
-        }
-        
-        .highlight-button {
-            display: inline-block;
-            padding: 12px 24px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            text-decoration: none;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        
-        .highlight-button:hover {
-            background-color: #45a049;
-        }
-        
-        .highlight-button:disabled {
-            background-color: #cccccc;
-            cursor: not-allowed;
-        }
-        
-        /* Mensagens de resultado */
-        #payment-result {
-            margin: 20px 0;
-            padding: 15px;
-            border-radius: 6px;
-        }
-        
-        .success-message {
-            background-color: #e8f5e9;
-            padding: 15px;
-            border-radius: 6px;
-            text-align: center;
-        }
-        
-        .success-message h3 {
-            color: #2e7d32;
-            margin-top: 0;
-        }
-        
-        .error-message {
-            background-color: #ffebee;
-            color: #c62828;
-            padding: 15px;
-            border-radius: 6px;
-            text-align: center;
-        }
-    </style>
-    <?php endif; ?>
     <?php
 }
 
