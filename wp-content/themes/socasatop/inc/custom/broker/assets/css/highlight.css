@@ -122,11 +122,23 @@
     color: #2a5885;
 }
 
+.highlight-property-price-container {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+}
+
+.highlight-property-main-price {
+    font-size: 16px;
+    color: #555;
+    margin: 0 0 5px;
+}
+
 .highlight-property-price {
-    font-size: 24px;
+    font-size: 26px;
     font-weight: 700;
-    color: #2a5885;
-    margin: 5px 0 0;
+    color: #e74c3c;
+    margin: 0;
 }
 
 /* Estilos para a caixa de benefícios */
@@ -189,13 +201,6 @@
     display: block;
     font-size: 16px;
     margin-bottom: 5px;
-}
-
-.highlight-price {
-    display: block;
-    font-size: 32px;
-    font-weight: 700;
-    margin: 5px 0;
 }
 
 .highlight-price-period {
@@ -275,6 +280,7 @@
     align-items: center;
     cursor: pointer;
     margin: 0;
+    width: 100%;
 }
 
 .saved-card-option input[type="radio"] {
@@ -284,16 +290,46 @@
 .card-info {
     display: flex;
     align-items: center;
+    flex-grow: 1;
 }
 
 .card-info i {
-    font-size: 24px;
-    margin-right: 10px;
+    font-size: 28px;
+    margin-right: 12px;
     color: #2a5885;
+}
+
+.card-info .fa-cc-visa {
+    color: #0157a2;
+}
+
+.card-info .fa-cc-mastercard {
+    color: #ea001b;
+}
+
+.card-info .fa-cc-amex {
+    color: #2671b9;
+}
+
+.card-info .fa-cc-diners-club {
+    color: #0079be;
+}
+
+.card-info .fa-cc-discover {
+    color: #ff6000;
+}
+
+.card-info .fa-cc-jcb {
+    color: #0b4ea2;
+}
+
+.card-info .fa-cc-elo {
+    color: #000;
 }
 
 .card-details {
     font-size: 15px;
+    flex-grow: 1;
 }
 
 /* Formulário de cartão novo */
@@ -581,5 +617,403 @@ input[type="text"]:hover, input[type="text"]:focus {
     
     .highlight-price {
         font-size: 28px;
+    }
+}
+
+/* Estilos para o formulário de destaque de imóvel */
+.highlight-payment-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Cabeçalho e notificações */
+.highlight-payment-container h2 {
+    color: #333;
+    margin-bottom: 20px;
+    text-align: center;
+    font-size: 28px;
+}
+
+.highlight-notice {
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 5px;
+}
+
+.highlight-notice.success {
+    background-color: #e7f9ed;
+    border: 1px solid #6bca8f;
+    color: #2c7a4e;
+}
+
+.highlight-notice.error {
+    background-color: #fde8e8;
+    border: 1px solid #f56565;
+    color: #c53030;
+}
+
+/* Informações do imóvel */
+.highlight-property-info {
+    display: flex;
+    flex-wrap: wrap;
+    margin-bottom: 25px;
+    border: 1px solid #eaeaea;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.highlight-property-image {
+    flex: 0 0 300px;
+    max-width: 300px;
+}
+
+.highlight-property-image img {
+    width: 100%;
+    height: auto;
+    object-fit: cover;
+    display: block;
+}
+
+.highlight-property-details {
+    flex: 1;
+    padding: 15px;
+    background: #f9f9f9;
+}
+
+.highlight-property-details h3 {
+    font-size: 20px;
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+/* Seção de preço do imóvel */
+.highlight-property-price-container {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #eaeaea;
+}
+
+.highlight-property-main-price {
+    font-size: 16px;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.highlight-property-price {
+    font-size: 26px;
+    font-weight: bold;
+    color: #e74c3c;
+    margin-bottom: 10px;
+}
+
+/* Informações do pacote */
+.highlight-package-info {
+    background: #f5f8ff;
+    padding: 20px;
+    margin-bottom: 25px;
+    border-radius: 8px;
+    border: 1px solid #d0e0ff;
+}
+
+.highlight-package-info h3 {
+    color: #3182ce;
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.highlight-package-price {
+    margin-top: 15px;
+    font-size: 18px;
+}
+
+.highlight-package-price-label {
+    font-weight: 600;
+    color: #4a5568;
+}
+
+.highlight-package-price-value {
+    font-weight: bold;
+    color: #2b6cb0;
+}
+
+/* Mensagens de resultado */
+#payment-result {
+    margin-bottom: 20px;
+    padding: 15px;
+    border-radius: 5px;
+}
+
+.error-message {
+    background-color: #fde8e8;
+    border: 1px solid #f56565;
+    color: #c53030;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.success-message {
+    background-color: #e7f9ed;
+    border: 1px solid #6bca8f;
+    color: #2c7a4e;
+    padding: 10px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+}
+
+.success-message i {
+    font-size: 24px;
+    margin-right: 10px;
+}
+
+/* Opções de pagamento */
+.payment-options-section {
+    margin-bottom: 25px;
+}
+
+.payment-tabs {
+    display: flex;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.payment-tab {
+    padding: 12px 20px;
+    cursor: pointer;
+    font-weight: 600;
+    color: #718096;
+    border-bottom: 3px solid transparent;
+    margin-right: 15px;
+    transition: all 0.3s;
+}
+
+.payment-tab:hover {
+    color: #4a5568;
+}
+
+.payment-tab.active {
+    color: #3182ce;
+    border-bottom-color: #3182ce;
+}
+
+.payment-panel {
+    display: none;
+    padding: 20px;
+    background: #f9fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.payment-panel.active {
+    display: block;
+}
+
+/* Cartões salvos */
+.saved-cards-list {
+    margin-bottom: 20px;
+}
+
+.saved-card-option {
+    padding: 15px;
+    margin-bottom: 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #fff;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.saved-card-option:hover {
+    border-color: #cbd5e0;
+    background: #f7fafc;
+}
+
+.saved-card-option label {
+    display: flex;
+    cursor: pointer;
+    width: 100%;
+}
+
+.saved-card-option input[type="radio"] {
+    margin-right: 15px;
+}
+
+.card-info {
+    display: flex;
+    align-items: center;
+    flex: 1;
+}
+
+.card-info i {
+    font-size: 24px;
+    margin-right: 15px;
+}
+
+.card-info .fa-cc-visa {
+    color: #1434CB;
+}
+
+.card-info .fa-cc-mastercard {
+    color: #EB001B;
+}
+
+.card-info .fa-cc-amex {
+    color: #2E77BC;
+}
+
+.card-info .fa-cc-diners-club {
+    color: #0079BE;
+}
+
+.card-info .fa-credit-card {
+    color: #718096;
+}
+
+.card-details {
+    font-size: 16px;
+}
+
+/* Formulário de cartão */
+.mp-form {
+    margin-bottom: 20px;
+}
+
+.form-row {
+    margin-bottom: 15px;
+}
+
+.form-row label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+    color: #4a5568;
+}
+
+.card-details-row {
+    display: flex;
+}
+
+.card-exp {
+    flex: 1;
+    margin-right: 15px;
+}
+
+.card-cvc {
+    flex: 0 0 120px;
+}
+
+.mp-card-input {
+    height: 40px;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    background: #fff;
+}
+
+.mp-error {
+    border-color: #f56565 !important;
+}
+
+input[type="text"] {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    font-size: 16px;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.checkbox-label input {
+    margin-right: 10px;
+}
+
+/* Termos e condições */
+.terms-checkbox {
+    margin-bottom: 20px;
+}
+
+/* Ações */
+.highlight-actions {
+    text-align: center;
+}
+
+.highlight-button {
+    background-color: #3182ce;
+    color: white;
+    padding: 12px 25px;
+    font-size: 16px;
+    font-weight: 600;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.highlight-button:hover {
+    background-color: #2c5282;
+}
+
+.highlight-button:disabled {
+    background-color: #a0aec0;
+    cursor: not-allowed;
+}
+
+/* Loading overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.loading-spinner {
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top: 4px solid #ffffff;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin-bottom: 15px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .highlight-property-info {
+        flex-direction: column;
+    }
+    
+    .highlight-property-image {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+    
+    .card-details-row {
+        flex-direction: column;
+    }
+    
+    .card-exp {
+        margin-right: 0;
+        margin-bottom: 15px;
     }
 } 

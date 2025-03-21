@@ -197,483 +197,326 @@ function is_property_highlighted($property_id) {
  * 
  * @param int $immobile_id ID do imóvel a ser destacado (opcional)
  */
-function render_highlight_payment_form($immobile_id = 0) {
-    // Verificar se o usuário está logado e é um corretor
-    if (!is_user_logged_in() || (!current_user_can('author') && !current_user_can('administrator'))) {
-        echo '<div class="error-message">Você precisa estar logado como um corretor para destacar imóveis.</div>';
-        return;
+function render_highlight_payment_form($atts = array()) {
+    global $wpdb;
+    
+    // Verificar se o usuário está logado e é corretor
+    if (!is_user_logged_in()) {
+        return '<div class="highlight-error">Você precisa estar logado como corretor para acessar esta página.</div>';
     }
     
-    // Verificar se o ID do imóvel foi passado como parâmetro ou via URL
-    if ($immobile_id <= 0 && isset($_GET['immobile_id'])) {
-        $immobile_id = intval($_GET['immobile_id']);
+    $user_id = get_current_user_id();
+    $is_broker = get_user_meta($user_id, 'is_broker', true);
+    
+    if (!$is_broker) {
+        return '<div class="highlight-error">Apenas corretores podem destacar imóveis.</div>';
     }
     
-    // Verificar se temos um ID válido
-    if ($immobile_id <= 0) {
-        echo '<div class="error-message">Nenhum imóvel selecionado para destacar.</div>';
-        return;
+    // Verificar se um imóvel foi selecionado
+    $immobile_id = isset($_GET['immobile_id']) ? intval($_GET['immobile_id']) : 0;
+    
+    if (!$immobile_id) {
+        return '<div class="highlight-error">Nenhum imóvel selecionado. <a href="' . home_url('/meus-imoveis/') . '">Clique aqui</a> para ver seus imóveis.</div>';
     }
     
-    $current_user_id = get_current_user_id();
+    // Verificar se o imóvel pertence ao corretor
+    $post = get_post($immobile_id);
     
-    // Verificar se o imóvel pertence ao usuário atual ou se é administrador
-    $author_id = get_post_field('post_author', $immobile_id);
-    $broker_id = get_post_meta($immobile_id, 'broker', true);
-    
-    // Verificar várias condições: se o usuário é autor, corretor ou administrador do imóvel
-    $is_author = intval($author_id) === $current_user_id;
-    $is_broker = !empty($broker_id) && intval($broker_id) === $current_user_id;
-    $is_admin = current_user_can('administrator');
-    
-    if (!$is_author && !$is_broker && !$is_admin) {
-        echo '<div class="error-message">Você não tem permissão para destacar este imóvel.</div>';
-        return;
+    if (!$post || $post->post_author != $user_id) {
+        return '<div class="highlight-error">O imóvel selecionado não pertence a você.</div>';
     }
     
-    // Verificar se o imóvel já está em destaque
-    $is_highlighted = get_post_meta($immobile_id, '_is_highlighted', true);
-    $is_sponsored = get_post_meta($immobile_id, 'is_sponsored', true);
+    // Obter preço do destaque
+    $highlight_price = get_option('highlight_payment_price', 149.90);
+    // Log para depuração
+    error_log("Preço do destaque: $highlight_price para imóvel #$immobile_id");
     
-    if ($is_highlighted || $is_sponsored === 'yes') {
-        echo '<div class="error-message">Este imóvel já está em destaque.</div>';
-        return;
-    }
-    
-    // Obter detalhes do imóvel
-    $immobile = get_post($immobile_id);
-    
-    if (!$immobile) {
-        echo '<div class="error-message">Imóvel não encontrado.</div>';
-        return;
-    }
-    
-    // Obter informações do imóvel (garantindo que o preço seja um número válido)
-    $title = get_the_title($immobile_id);
-    $price_meta = get_post_meta($immobile_id, 'price', true);
-    $price = !empty($price_meta) ? floatval($price_meta) : 0;
-    
-    // Garantir que o preço seja sempre exibido, mesmo que seja zero
-    if ($price <= 0) {
-        $price = get_post_meta($immobile_id, 'rent_price', true); // Alternativa: tentar preço de aluguel
-        $price = !empty($price) ? floatval($price) : 0;
-        
-        // Tentar outras opções de campos de preço que possam existir
-        if ($price <= 0) {
-            $price_alternatives = array(
-                'property_price',
-                'property_rent_price',
-                '_price',
-                '_rent_price',
-                'immobile_price',
-                'immobile_rent_price'
-            );
-            
-            foreach ($price_alternatives as $price_field) {
-                $temp_price = get_post_meta($immobile_id, $price_field, true);
-                if (!empty($temp_price) && is_numeric($temp_price)) {
-                    $price = floatval($temp_price);
-                    break;
-                }
-            }
-            
-            // Se ainda for zero, obter o preço do post
-            if ($price <= 0) {
-                $post_content = get_post_field('post_content', $immobile_id);
-                // Procurar por padrões de preço como "R$ 1.000.000,00" ou "1000000"
-                if (preg_match('/R\$\s*([0-9.,]+)/i', $post_content, $matches)) {
-                    $price_str = str_replace(array('.', ','), array('', '.'), $matches[1]);
-                    $price = floatval($price_str);
-                }
-            }
-            
-            // Log para debug
-            error_log("Preço final obtido para o imóvel ID {$immobile_id}: {$price}");
-        }
-    }
-    
-    // Obter a imagem de destaque de forma segura
+    // Obter imagem destacada do imóvel
     $image_url = '';
-    $featured_image_id = get_post_thumbnail_id($immobile_id);
     
-    if ($featured_image_id) {
-        $featured_image_url = wp_get_attachment_image_src($featured_image_id, 'medium');
-        if ($featured_image_url && isset($featured_image_url[0])) {
-            $image_url = $featured_image_url[0];
-            // Garantir que a URL da imagem use HTTPS
-            $image_url = str_replace('http://', 'https://', $image_url);
-        }
-    } 
+    // Método 1: Tentar obter a imagem destacada
+    if (has_post_thumbnail($immobile_id)) {
+        $thumbnail_id = get_post_thumbnail_id($immobile_id);
+        $image_url = wp_get_attachment_image_url($thumbnail_id, 'medium');
+        
+        // Garantir que a URL da imagem use HTTPS
+        $image_url = str_replace('http://', 'https://', $image_url);
+    }
     
-    // Se não encontrou imagem ou não existe imagem destacada, tentar outras opções
+    // Método 2: Verificar diretório de uploads para possíveis caminhos de imagem
     if (empty($image_url)) {
-        // Tentar obter a primeira imagem da galeria
-        $gallery_images = get_post_meta($immobile_id, 'gallery_images', true);
-        if (!empty($gallery_images) && is_array($gallery_images) && count($gallery_images) > 0) {
-            $first_image_id = $gallery_images[0];
-            $image_src = wp_get_attachment_image_src($first_image_id, 'medium');
-            if ($image_src && isset($image_src[0])) {
-                $image_url = $image_src[0];
-                $image_url = str_replace('http://', 'https://', $image_url);
-            }
-        }
+        $upload_dir = wp_upload_dir();
+        $broker_id = get_post_meta($immobile_id, 'property_broker', true) ?: $user_id;
         
-        // Tentar encontrar a primeira imagem no conteúdo
-        if (empty($image_url)) {
-            $post_content = get_post_field('post_content', $immobile_id);
-            if (preg_match('/<img.+src=[\'"]([^\'"]+)[\'"].*>/i', $post_content, $matches)) {
-                $image_url = $matches[1];
-                $image_url = str_replace('http://', 'https://', $image_url);
-            }
-        }
+        // Possíveis caminhos de imagem
+        $possible_paths = [
+            'properties/' . $broker_id . '/' . $immobile_id . '/main.jpg',
+            'properties/' . $broker_id . '/' . $immobile_id . '/main.jpeg',
+            'properties/' . $broker_id . '/' . $immobile_id . '/main.png',
+            'properties/' . $broker_id . '/' . $immobile_id . '/1.jpg',
+            'properties/' . $broker_id . '/' . $immobile_id . '/1.jpeg',
+            'properties/' . $broker_id . '/' . $immobile_id . '/1.png',
+            'properties/broker-' . $broker_id . '/property-' . $immobile_id . '/main.jpg',
+            'properties/broker-' . $broker_id . '/property-' . $immobile_id . '/main.jpeg',
+            'properties/broker-' . $broker_id . '/property-' . $immobile_id . '/main.png',
+            'properties/broker-' . $broker_id . '/property-' . $immobile_id . '/1.jpg',
+            'properties/broker-' . $broker_id . '/property-' . $immobile_id . '/1.jpeg',
+            'properties/broker-' . $broker_id . '/property-' . $immobile_id . '/1.png',
+        ];
         
-        // Tentar obter imagem de outros meta campos comuns
-        if (empty($image_url)) {
-            $image_field_options = array(
-                'property_image',
-                'main_image',
-                'featured_image',
-                'property_featured_image',
-                '_thumbnail'
-            );
+        foreach ($possible_paths as $path) {
+            $full_path = $upload_dir['basedir'] . '/' . $path;
+            $full_url = $upload_dir['baseurl'] . '/' . $path;
             
-            foreach ($image_field_options as $field) {
-                $image_meta = get_post_meta($immobile_id, $field, true);
-                if (!empty($image_meta)) {
-                    if (is_numeric($image_meta)) {
-                        // Se for um ID de anexo
-                        $image_src = wp_get_attachment_image_src($image_meta, 'medium');
-                        if ($image_src && isset($image_src[0])) {
-                            $image_url = $image_src[0];
-                            $image_url = str_replace('http://', 'https://', $image_url);
-                            break;
-                        }
-                    } elseif (filter_var($image_meta, FILTER_VALIDATE_URL)) {
-                        // Se for uma URL direta
-                        $image_url = $image_meta;
-                        $image_url = str_replace('http://', 'https://', $image_url);
-                        break;
-                    }
-                }
+            if (file_exists($full_path)) {
+                $image_url = str_replace('http://', 'https://', $full_url);
+                break;
             }
-        }
-        
-        // Se ainda não encontrou, usar imagem padrão
-        if (empty($image_url)) {
-            // Caminho para uma imagem padrão
-            $placeholder_path = '/inc/custom/broker/assets/images/no-image.jpg';
-            $placeholder_file = get_stylesheet_directory() . $placeholder_path;
-            
-            if (file_exists($placeholder_file)) {
-                $image_url = get_stylesheet_directory_uri() . $placeholder_path;
-            } else {
-                // Fallback para placeholder online
-                $image_url = 'https://via.placeholder.com/400x300?text=Sem+Imagem';
-            }
-            
-            // Registrar a falta de imagem
-            error_log("Nenhuma imagem encontrada para o imóvel ID {$immobile_id}. Usando placeholder.");
         }
     }
     
-    // Obter o preço do destaque
-    $highlight_price = floatval(get_option('highlight_payment_price', 99.90));
+    // Método 3: Obter a primeira imagem da galeria
+    if (empty($image_url)) {
+        $gallery_images = get_post_meta($immobile_id, 'property_gallery', true);
+        
+        if (!empty($gallery_images) && is_array($gallery_images)) {
+            $first_image = reset($gallery_images);
+            
+            if (isset($first_image['url'])) {
+                $image_url = str_replace('http://', 'https://', $first_image['url']);
+            } elseif (is_numeric($first_image)) {
+                $image_url = wp_get_attachment_image_url($first_image, 'medium');
+                $image_url = str_replace('http://', 'https://', $image_url);
+            }
+        }
+    }
     
-    // Carregar o SDK do Mercado Pago
-    wp_enqueue_script('mercadopago-js', 'https://sdk.mercadopago.com/js/v2', array(), null, true);
+    // Método 4: Procurar por imagem no conteúdo do post
+    if (empty($image_url)) {
+        $content = $post->post_content;
+        $pattern = '/<img.*?src=[\'"]([^\'"]+)[\'"].*?>/i';
+        
+        if (preg_match($pattern, $content, $matches)) {
+            $image_url = str_replace('http://', 'https://', $matches[1]);
+        }
+    }
     
-    // Carregar os estilos CSS
-    wp_enqueue_style('highlight-css', get_stylesheet_directory_uri() . '/inc/custom/broker/assets/css/highlight.css', array(), '1.0.4');
+    // Método 5: Verificar meta fields comuns para imagens
+    if (empty($image_url)) {
+        $meta_fields = [
+            'property_image', 'main_image', 'featured_image', 
+            '_thumbnail_id', 'property_featured_image', 'property_main_image'
+        ];
+        
+        foreach ($meta_fields as $field) {
+            $image_meta = get_post_meta($immobile_id, $field, true);
+            
+            if (!empty($image_meta)) {
+                if (is_numeric($image_meta)) {
+                    $image_url = wp_get_attachment_image_url($image_meta, 'medium');
+                } else {
+                    $image_url = $image_meta;
+                }
+                
+                $image_url = str_replace('http://', 'https://', $image_url);
+                break;
+            }
+        }
+    }
     
-    // Carregar o script de pagamento
-    wp_enqueue_script('highlight-payment-js', get_stylesheet_directory_uri() . '/inc/custom/broker/assets/js/highlight-payment.js', array('jquery'), '1.0.4', true);
+    // Se ainda não encontrou, usar uma imagem padrão
+    if (empty($image_url)) {
+        $image_url = get_template_directory_uri() . '/assets/images/property-placeholder.jpg';
+        error_log("Nenhuma imagem encontrada para o imóvel #$immobile_id. Usando placeholder.");
+    }
     
-    // Criar nonce para segurança
-    $nonce = wp_create_nonce('highlight_payment_nonce');
+    // Obter dados do imóvel para exibição
+    $property_title = get_the_title($immobile_id);
     
-    // Passar variáveis para o script
+    // Obter preço do imóvel
+    $property_price = get_post_meta($immobile_id, 'property_price', true);
+    $property_price = !empty($property_price) ? floatval($property_price) : 0;
+    
+    // Se o preço for zero, tentar o preço de aluguel
+    if ($property_price == 0) {
+        $property_price = get_post_meta($immobile_id, 'property_rent_price', true);
+        $property_price = !empty($property_price) ? floatval($property_price) : 0;
+    }
+    
+    // Se ainda for zero, tentar outros campos de preço comuns
+    if ($property_price == 0) {
+        $price_fields = [
+            'property_price', 'property_rent_price', '_price', '_rent_price',
+            'immobile_price', 'immobile_rent_price'
+        ];
+        
+        foreach ($price_fields as $field) {
+            $price_meta = get_post_meta($immobile_id, $field, true);
+            
+            if (!empty($price_meta) && is_numeric($price_meta)) {
+                $property_price = floatval($price_meta);
+                break;
+            }
+        }
+    }
+    
+    // Se ainda for zero, tentar encontrar o preço no conteúdo
+    if ($property_price == 0) {
+        $content = $post->post_content;
+        // Procurar por padrões como "R$ 1.000.000,00" ou "1000000"
+        $price_pattern = '/R\$\s?([0-9.,]+)|([0-9.,]+)\s?reais/i';
+        
+        if (preg_match($price_pattern, $content, $matches)) {
+            $matched_price = !empty($matches[1]) ? $matches[1] : $matches[2];
+            $property_price = preg_replace('/[^0-9]/', '', $matched_price);
+            $property_price = floatval($property_price);
+        }
+    }
+    
+    // Log para depuração
+    error_log("Preço final do imóvel #$immobile_id: R$ $property_price");
+    
+    // Formatar preço do imóvel para exibição
+    $formatted_property_price = 'R$ ' . number_format($property_price, 2, ',', '.');
+    
+    // Obter o status atual de destaque
+    $is_highlighted = get_post_meta($immobile_id, '_is_highlighted', true);
+    $highlight_expiry = get_post_meta($immobile_id, '_highlight_expiry', true);
+    $current_time = current_time('timestamp');
+    
+    // Verificar se o destaque ainda está ativo
+    $highlight_active = $is_highlighted && $highlight_expiry && $highlight_expiry > $current_time;
+    
+    // Adicionar dados para o JavaScript
+    $mp_public_key = get_option('mercadopago_public_key_test');
+    if (get_option('mercadopago_production_mode', 'no') === 'yes') {
+        $mp_public_key = get_option('mercadopago_public_key_prod');
+    }
+    
+    // Dados para o JavaScript
     wp_localize_script('highlight-payment-js', 'highlight_payment', array(
         'ajax_url' => admin_url('admin-ajax.php'),
-        'nonce' => $nonce,
+        'nonce' => wp_create_nonce('highlight_payment_nonce'),
         'immobile_id' => $immobile_id,
         'price' => $highlight_price,
-        'public_key' => get_option('mercadopago_public_key', '')
+        'public_key' => $mp_public_key,
     ));
     
-    // Obter cartões salvos do usuário (verificando múltiplos meta campos possíveis)
-    $saved_cards = get_user_meta($current_user_id, '_saved_payment_cards', true);
-    if (empty($saved_cards) || !is_array($saved_cards)) {
-        $saved_cards = get_user_meta($current_user_id, 'mercadopago_cards', true);
-    }
+    // Iniciar o buffer de saída
+    ob_start();
     
-    // Também tentar outras opções de meta para cartões
-    if (empty($saved_cards) || !is_array($saved_cards)) {
-        $saved_cards = get_user_meta($current_user_id, '_mercadopago_cards', true);
-    }
-    
-    // Se ainda estiver vazio, inicializar como array
-    if (empty($saved_cards)) {
-        $saved_cards = array();
-    }
-    
-    // Obter características do imóvel para exibição
-    $address = get_post_meta($immobile_id, 'address', true);
-    $neighborhood = get_post_meta($immobile_id, 'neighborhood', true);
-    $city = get_post_meta($immobile_id, 'city', true);
-    $bedrooms = get_post_meta($immobile_id, 'bedrooms', true);
-    $bathrooms = get_post_meta($immobile_id, 'bathrooms', true);
-    $area = get_post_meta($immobile_id, 'area', true);
-    
-    // Início do HTML do formulário com o novo layout
     ?>
-    <div class="highlight-container">
-        <div class="highlight-header">
-            <h2 class="highlight-title">Destaque seu Imóvel</h2>
-            <p class="highlight-description">Aumente a visibilidade do seu anúncio e atraia mais clientes! Imóveis em destaque aparecem no topo dos resultados de busca.</p>
+    <div class="highlight-payment-container">
+        <h2>Destaque seu Imóvel</h2>
+        
+        <?php if ($highlight_active): ?>
+            <div class="highlight-notice success">
+                <p>Este imóvel já está destacado! O destaque expira em <?php echo date('d/m/Y H:i', $highlight_expiry); ?>.</p>
+                <p>Você pode renovar o destaque antes da data de expiração para manter seu imóvel em evidência.</p>
+            </div>
+        <?php endif; ?>
+        
+        <div class="highlight-property-info">
+            <div class="highlight-property-image">
+                <img src="<?php echo esc_url($image_url); ?>" alt="<?php echo esc_attr($property_title); ?>" />
+            </div>
+            <div class="highlight-property-details">
+                <h3><?php echo esc_html($property_title); ?></h3>
+                
+                <div class="highlight-property-price-container">
+                    <div class="highlight-property-main-price">Valor do imóvel:</div>
+                    <div class="highlight-property-price"><?php echo esc_html($formatted_property_price); ?></div>
+                </div>
+            </div>
         </div>
         
-        <div class="highlight-content">
-            <!-- Lado esquerdo: Informações do imóvel -->
-            <div class="highlight-left-column">
-                <div class="highlight-property-card">
-                    <div class="highlight-property-image">
-                        <img src="<?php echo esc_url($image_url); ?>" alt="<?php echo esc_attr($title); ?>">
+        <div class="highlight-package-info">
+            <h3>Destaque de Imóvel</h3>
+            <p>Destaque seu imóvel por 30 dias! Imóveis destacados aparecem no topo das listagens e são promovidos em nossos canais.</p>
+            <div class="highlight-package-price">
+                <span class="highlight-package-price-label">Valor:</span>
+                <span class="highlight-package-price-value">R$ <?php echo number_format($highlight_price, 2, ',', '.'); ?></span>
+            </div>
+        </div>
+        
+        <div id="payment-result" style="display: none;">
+            <div class="success-message" style="display: none;">
+                <i class="fas fa-check-circle"></i>
+                <p></p>
+            </div>
+            <div class="error-message" style="display: none;"></div>
+        </div>
+        
+        <div class="payment-options-section">
+            <h3>Formas de Pagamento</h3>
+            
+            <?php
+            // Verificar se o usuário tem cartões salvos
+            $saved_cards = get_user_meta($user_id, 'saved_cards', true);
+            $has_saved_cards = !empty($saved_cards) && is_array($saved_cards);
+            
+            if ($has_saved_cards):
+            ?>
+                <div class="payment-tabs">
+                    <div class="payment-tab saved-cards-tab active" data-target="saved-cards-panel">
+                        <i class="fas fa-credit-card"></i> Cartão Salvo
                     </div>
-                    <div class="highlight-property-details">
-                        <h3 class="highlight-property-title"><?php echo esc_html($title); ?></h3>
-                        <p class="highlight-property-location">
-                            <?php 
-                            $location = array();
-                            if (!empty($address)) $location[] = $address;
-                            if (!empty($neighborhood)) $location[] = $neighborhood;
-                            if (!empty($city)) $location[] = $city;
-                            echo !empty($location) ? esc_html(implode(', ', $location)) : 'Localização não informada';
-                            ?>
-                        </p>
-                        <div class="highlight-property-features">
-                            <?php if (!empty($bedrooms)): ?>
-                            <span class="property-feature"><i class="fa fa-bed"></i> <?php echo esc_html($bedrooms); ?> <?php echo $bedrooms > 1 ? 'quartos' : 'quarto'; ?></span>
-                            <?php endif; ?>
-                            
-                            <?php if (!empty($bathrooms)): ?>
-                            <span class="property-feature"><i class="fa fa-bath"></i> <?php echo esc_html($bathrooms); ?> <?php echo $bathrooms > 1 ? 'banheiros' : 'banheiro'; ?></span>
-                            <?php endif; ?>
-                            
-                            <?php if (!empty($area)): ?>
-                            <span class="property-feature"><i class="fa fa-vector-square"></i> <?php echo esc_html($area); ?>m²</span>
-                            <?php endif; ?>
-                        </div>
-                        <p class="highlight-property-price">R$ <?php echo number_format($price, 2, ',', '.'); ?></p>
+                    <div class="payment-tab new-card-tab" data-target="new-card-panel">
+                        <i class="fas fa-plus-circle"></i> Novo Cartão
                     </div>
                 </div>
                 
-                <div class="highlight-benefits-box">
-                    <h3>Benefícios do Destaque</h3>
-                    <ul>
-                        <li><i class="fa fa-check-circle"></i> <strong>Visibilidade superior</strong>: Seu imóvel aparece no topo dos resultados de busca</li>
-                        <li><i class="fa fa-check-circle"></i> <strong>Mais visualizações</strong>: Atraia até 4x mais cliques e visualizações</li>
-                        <li><i class="fa fa-check-circle"></i> <strong>Selo especial</strong>: Seu anúncio recebe um selo exclusivo de destaque</li>
-                        <li><i class="fa fa-check-circle"></i> <strong>Venda mais rápido</strong>: Imóveis em destaque fecham negócios 40% mais rápido</li>
-                    </ul>
-                </div>
-            </div>
-            
-            <!-- Lado direito: Formulário de pagamento -->
-            <div class="highlight-right-column">
-                <div class="highlight-payment-card">
-                    <div class="highlight-price-section">
-                        <span class="highlight-price-label">Valor do Destaque:</span>
-                        <span class="highlight-price">R$ <?php echo number_format($highlight_price, 2, ',', '.'); ?></span>
-                        <span class="highlight-price-period">por 30 dias de destaque</span>
-                    </div>
-                    
-                    <div class="payment-options-section">
-                        <h3>Forma de Pagamento</h3>
-                        
-                        <?php if (!empty($saved_cards)): ?>
-                        <div class="payment-tabs">
-                            <div class="payment-tab saved-cards-tab active" data-target="saved-cards-panel">Cartões Salvos</div>
-                            <div class="payment-tab new-card-tab" data-target="new-card-panel">Novo Cartão</div>
-                        </div>
-                        
-                        <!-- Painel de cartões salvos -->
-                        <div id="saved-cards-panel" class="payment-panel active">
-                            <?php foreach ($saved_cards as $card_id => $card): ?>
-                                <?php 
-                                // Determinar o tipo de cartão para exibir o ícone correto
-                                $card_type = isset($card['payment_method']) ? strtolower($card['payment_method']) : '';
-                                $card_icon = 'fa-credit-card'; // Ícone padrão
-                                
-                                // Definir ícone com base no tipo de cartão
-                                if (strpos($card_type, 'visa') !== false) {
-                                    $card_icon = 'fa-cc-visa';
-                                } elseif (strpos($card_type, 'master') !== false) {
-                                    $card_icon = 'fa-cc-mastercard';
-                                } elseif (strpos($card_type, 'amex') !== false) {
-                                    $card_icon = 'fa-cc-amex';
-                                } elseif (strpos($card_type, 'diners') !== false) {
-                                    $card_icon = 'fa-cc-diners-club';
-                                }
-                                
-                                // Obter últimos dígitos
-                                $last_digits = isset($card['last_four']) ? $card['last_four'] : '****';
-                                ?>
+                <div class="payment-panels">
+                    <div id="saved-cards-panel" class="payment-panel active">
+                        <div class="saved-cards-list">
+                            <?php foreach ($saved_cards as $card_id => $card_info): ?>
                                 <div class="saved-card-option">
                                     <label>
-                                        <input type="radio" name="card_id" value="<?php echo esc_attr($card_id); ?>" checked>
+                                        <input type="radio" name="card_id" value="<?php echo esc_attr($card_id); ?>">
                                         <div class="card-info">
-                                            <i class="fab <?php echo $card_icon; ?>"></i>
-                                            <span class="card-details">
-                                                <?php echo esc_html(isset($card['payment_method']) ? $card['payment_method'] : 'Cartão'); ?> 
-                                                terminado em <?php echo esc_html($last_digits); ?>
-                                            </span>
+                                            <div class="card-details">
+                                                <?php echo esc_html($card_info['type']); ?> terminado em <?php echo esc_html($card_info['last_four']); ?>
+                                            </div>
                                         </div>
                                     </label>
                                 </div>
                             <?php endforeach; ?>
                         </div>
-                        
-                        <!-- Painel de novo cartão -->
-                        <div id="new-card-panel" class="payment-panel">
-                            <div class="mp-form">
-                                <div class="form-row">
-                                    <label for="cardNumberContainer">Número do cartão</label>
-                                    <div id="cardNumberContainer" class="mp-card-input"></div>
-                                </div>
-                                
-                                <div class="form-row card-details-row">
-                                    <div class="card-exp">
-                                        <label for="expirationDateContainer">Validade</label>
-                                        <div id="expirationDateContainer" class="mp-card-input"></div>
-                                    </div>
-                                    
-                                    <div class="card-cvc">
-                                        <label for="securityCodeContainer">CVV</label>
-                                        <div id="securityCodeContainer" class="mp-card-input"></div>
-                                    </div>
-                                </div>
-                                
-                                <div class="form-row">
-                                    <label for="cardholderName">Nome como está no cartão</label>
-                                    <input type="text" id="cardholderName" name="cardholderName" placeholder="Nome como está no cartão">
-                                </div>
-                                
-                                <div class="form-row">
-                                    <label for="identificationNumber">CPF do titular</label>
-                                    <input type="text" id="identificationNumber" name="identificationNumber" placeholder="Apenas números">
-                                </div>
-                                
-                                <div class="form-row">
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" id="save_card" name="save_card" checked>
-                                        <span>Salvar este cartão para futuras transações</span>
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                        <?php else: ?>
-                        <!-- Apenas opção de novo cartão quando não há cartões salvos -->
-                        <div class="mp-form">
-                            <div class="form-row">
-                                <label for="cardNumberContainer">Número do cartão</label>
-                                <div id="cardNumberContainer" class="mp-card-input"></div>
-                            </div>
-                            
-                            <div class="form-row card-details-row">
-                                <div class="card-exp">
-                                    <label for="expirationDateContainer">Validade</label>
-                                    <div id="expirationDateContainer" class="mp-card-input"></div>
-                                </div>
-                                
-                                <div class="card-cvc">
-                                    <label for="securityCodeContainer">CVV</label>
-                                    <div id="securityCodeContainer" class="mp-card-input"></div>
-                                </div>
-                            </div>
-                            
-                            <div class="form-row">
-                                <label for="cardholderName">Nome como está no cartão</label>
-                                <input type="text" id="cardholderName" name="cardholderName" placeholder="Nome como está no cartão">
-                            </div>
-                            
-                            <div class="form-row">
-                                <label for="identificationNumber">CPF do titular</label>
-                                <input type="text" id="identificationNumber" name="identificationNumber" placeholder="Apenas números">
-                            </div>
-                            
-                            <div class="form-row">
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="save_card" name="save_card" checked>
-                                    <span>Salvar este cartão para futuras transações</span>
-                                </label>
-                            </div>
-                        </div>
-                        <?php endif; ?>
-                        
-                        <div class="terms-container">
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="accept-terms" name="accept-terms" required>
-                                <span>Concordo com os <a href="<?php echo esc_url(get_privacy_policy_url()); ?>" target="_blank">termos de uso e política de privacidade</a></span>
-                            </label>
-                        </div>
-                        
-                        <!-- Resultado do pagamento -->
-                        <div id="payment-result" style="display: none;">
-                            <div class="success-message" style="display: none;">
-                                <h3>Pagamento realizado com sucesso!</h3>
-                                <p></p>
-                            </div>
-                            <div class="error-message" style="display: none;"></div>
-                        </div>
-                        
-                        <!-- Botão de ação -->
-                        <div class="highlight-action">
-                            <button class="highlight-button" data-action="highlight-property">Destacar Imóvel Agora</button>
-                        </div>
+                    </div>
+                    
+                    <div id="new-card-panel" class="payment-panel">
+                        <?php include_once(get_template_directory() . '/inc/custom/broker/payment-form.php'); ?>
                     </div>
                 </div>
-                
-                <div class="secure-payment-info">
-                    <div class="secure-icon"><i class="fa fa-lock"></i></div>
-                    <div class="secure-text">
-                        <p>Pagamento 100% seguro</p>
-                        <p class="secure-subtext">Processado por MercadoPago com criptografia de ponta a ponta.</p>
-                    </div>
+            <?php else: ?>
+                <div id="new-card-panel" class="payment-panel active">
+                    <?php include_once(get_template_directory() . '/inc/custom/broker/payment-form.php'); ?>
                 </div>
+            <?php endif; ?>
+            
+            <div class="terms-checkbox">
+                <label>
+                    <input type="checkbox" id="accept-terms" name="accept_terms" value="1">
+                    Aceito os <a href="<?php echo home_url('/termos-de-uso/'); ?>" target="_blank">termos de uso</a> e <a href="<?php echo home_url('/politica-de-privacidade/'); ?>" target="_blank">política de privacidade</a>
+                </label>
+            </div>
+            
+            <div class="highlight-actions">
+                <button class="highlight-button" data-action="highlight-property">
+                    <?php echo $highlight_active ? 'Renovar Destaque' : 'Destacar Imóvel'; ?>
+                </button>
             </div>
         </div>
         
-        <!-- Loading overlay -->
-        <div class="loading-overlay">
+        <div class="loading-overlay" style="display: none;">
             <div class="loading-spinner"></div>
-            <p class="loading-text">Processando pagamento...</p>
+            <p>Processando pagamento...</p>
         </div>
     </div>
-    
-    <script>
-    // Script para alternar entre as abas de pagamento
-    jQuery(document).ready(function($) {
-        $('.payment-tab').click(function() {
-            // Remover classe active de todas as abas
-            $('.payment-tab').removeClass('active');
-            // Adicionar classe active à aba clicada
-            $(this).addClass('active');
-            
-            // Esconder todos os painéis
-            $('.payment-panel').removeClass('active');
-            // Mostrar o painel correspondente à aba
-            $('#' + $(this).data('target')).addClass('active');
-            
-            // Atualizar o método de pagamento selecionado
-            if ($(this).hasClass('saved-cards-tab')) {
-                $('input[name="payment_method"]').val('saved');
-            } else {
-                $('input[name="payment_method"]').val('new');
-            }
-        });
-    });
-    </script>
     <?php
+    
+    // Retornar o conteúdo do buffer
+    return ob_get_clean();
 }
 
 /**

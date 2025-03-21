@@ -32,6 +32,68 @@
             return;
         }
         
+        // Função para determinar o ícone correto da bandeira do cartão
+        function getCardIcon(cardType) {
+            if (!cardType) return 'fa-credit-card';
+            
+            const cardTypeLC = cardType.toLowerCase();
+            
+            if (cardTypeLC.includes('visa')) {
+                return 'fa-cc-visa';
+            } else if (cardTypeLC.includes('master')) {
+                return 'fa-cc-mastercard';
+            } else if (cardTypeLC.includes('amex') || cardTypeLC.includes('american')) {
+                return 'fa-cc-amex';
+            } else if (cardTypeLC.includes('diners')) {
+                return 'fa-cc-diners-club';
+            } else if (cardTypeLC.includes('discover')) {
+                return 'fa-cc-discover';
+            } else if (cardTypeLC.includes('jcb')) {
+                return 'fa-cc-jcb';
+            } else if (cardTypeLC.includes('elo')) {
+                return 'fa-cc-elo';
+            } else if (cardTypeLC.includes('hipercard')) {
+                return 'fa-credit-card';
+            } else {
+                return 'fa-credit-card';
+            }
+        }
+        
+        // Atualizar os ícones de cartão para cartões salvos
+        function updateSavedCardIcons() {
+            $('.saved-card-option').each(function() {
+                const cardLabel = $(this).find('.card-details').text();
+                let cardType = '';
+                
+                // Tentar extrair o tipo de cartão do texto
+                if (cardLabel.toLowerCase().includes('visa')) {
+                    cardType = 'visa';
+                } else if (cardLabel.toLowerCase().includes('master')) {
+                    cardType = 'mastercard';
+                } else if (cardLabel.toLowerCase().includes('amex')) {
+                    cardType = 'amex';
+                } else if (cardLabel.toLowerCase().includes('diners')) {
+                    cardType = 'diners';
+                } else if (cardLabel.toLowerCase().includes('elo')) {
+                    cardType = 'elo';
+                } else if (cardLabel.toLowerCase().includes('hipercard')) {
+                    cardType = 'hipercard';
+                }
+                
+                // Se encontrou um tipo, atualizar o ícone
+                if (cardType) {
+                    const icon = getCardIcon(cardType);
+                    const iconElement = $(this).find('.card-info i');
+                    
+                    if (iconElement.length) {
+                        iconElement.attr('class', 'fab ' + icon);
+                    } else {
+                        $(this).find('.card-info').prepend('<i class="fab ' + icon + '"></i>');
+                    }
+                }
+            });
+        }
+        
         // Variáveis para armazenar referências
         let mpInstance = null;
         let cardForm = null;
@@ -42,16 +104,22 @@
             if (typeof MercadoPago === 'undefined') {
                 console.error('MercadoPago SDK não está disponível');
                 
-                // Tentar carregar o SDK novamente após um curto atraso
-                setTimeout(function() {
+                // Carregar o SDK do MercadoPago manualmente
+                const script = document.createElement('script');
+                script.src = 'https://sdk.mercadopago.com/js/v2';
+                script.onload = function() {
+                    console.log('MercadoPago SDK carregado manualmente');
                     if (typeof MercadoPago !== 'undefined') {
-                        console.log('MercadoPago SDK carregado por script alternativo');
                         initializeMercadoPago();
                     } else {
                         showErrorMessage('Não foi possível carregar o SDK do MercadoPago. Recarregue a página ou tente novamente mais tarde.');
                     }
-                }, 1500);
-                
+                };
+                script.onerror = function() {
+                    console.error('Erro ao carregar o SDK do MercadoPago manualmente');
+                    showErrorMessage('Não foi possível carregar o SDK do MercadoPago. Verifique sua conexão com a internet.');
+                };
+                document.head.appendChild(script);
                 return;
             }
             
@@ -69,9 +137,12 @@
                 
                 // Inicializar o formulário de cartão
                 initializeCardForm();
+                
+                // Atualizar ícones dos cartões salvos
+                updateSavedCardIcons();
             } catch (e) {
                 console.error('Erro ao inicializar MercadoPago:', e);
-                showErrorMessage('Erro ao inicializar o gateway de pagamento: ' + e.message);
+                showErrorMessage('Erro ao inicializar o gateway de pagamento: ' + (e.message || 'Verifique as configurações do MercadoPago.'));
             }
         }
         
@@ -90,9 +161,9 @@
             console.log('Elementos do formulário de cartão encontrados, inicializando...');
             
             try {
-                // Configurações do formulário
-                const cardFormSettings = {
-                    amount: parseFloat(highlight_payment.price),
+                // Definir configurações padrão
+                const defaultSettings = {
+                    amount: parseFloat(highlight_payment.price || 99.90),
                     autoMount: true,
                     form: {
                         id: "new-card-panel",
@@ -111,17 +182,13 @@
                         securityCode: {
                             id: "securityCodeContainer",
                             placeholder: "CVV",
-                        },
-                        installments: {
-                            id: "form-checkout__installments",
-                            placeholder: "Parcelas"
                         }
                     },
                     callbacks: {
                         onFormMounted: function(error) {
                             if (error) {
                                 console.error("Erro ao montar formulário:", error);
-                                showErrorMessage("Erro ao carregar formulário: " + error);
+                                showErrorMessage("Erro ao carregar formulário de pagamento: " + error);
                             } else {
                                 console.log("Formulário de cartão montado com sucesso");
                             }
@@ -146,11 +213,6 @@
                                 console.error("Erro ao obter emissores:", error);
                             }
                         },
-                        onInstallmentsReceived: function(error, installments) {
-                            if (error) {
-                                console.error("Erro ao obter parcelas:", error);
-                            }
-                        },
                         onCardTokenReceived: function(error, token) {
                             if (error) {
                                 console.error("Erro ao obter token do cartão:", error);
@@ -160,7 +222,9 @@
                             console.log("Buscando recurso:", resource);
                         },
                         onSubmit: function(event) {
-                            event.preventDefault();
+                            if (event && event.preventDefault) {
+                                event.preventDefault();
+                            }
                             console.log("Submit do formulário interceptado");
                         },
                         onValidityChange: function(error, field) {
@@ -176,11 +240,19 @@
                 };
                 
                 // Criar o formulário
-                cardForm = mpInstance.cardForm(cardFormSettings);
+                if (!mpInstance) {
+                    throw new Error('MercadoPago SDK não inicializado corretamente');
+                }
+                
+                if (!mpInstance.cardForm) {
+                    throw new Error('MercadoPago SDK não possui o método cardForm');
+                }
+                
+                cardForm = mpInstance.cardForm(defaultSettings);
                 console.log('Formulário de cartão inicializado com sucesso');
             } catch (e) {
                 console.error('Erro ao inicializar formulário de cartão:', e);
-                showErrorMessage('Erro ao configurar formulário de pagamento: ' + e.message);
+                showErrorMessage('Erro ao configurar formulário de pagamento: ' + (e.message || 'Erro desconhecido'));
             }
         }
         
@@ -281,6 +353,14 @@
         // Função para processar pagamento com novo cartão
         function processPaymentWithNewCard() {
             showLoading(true);
+            
+            // Verificar se cardForm existe e tem o método createCardToken
+            if (!cardForm || typeof cardForm.createCardToken !== 'function') {
+                showLoading(false);
+                showErrorMessage('Erro ao processar pagamento: formulário não inicializado corretamente');
+                console.error('cardForm não está inicializado corretamente', cardForm);
+                return;
+            }
             
             // Obter token do cartão via SDK
             cardForm.createCardToken()
