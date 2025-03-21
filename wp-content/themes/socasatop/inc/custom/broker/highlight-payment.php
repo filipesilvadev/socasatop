@@ -254,7 +254,7 @@ function render_highlight_payment_form($immobile_id = 0) {
     
     // Obter informações do imóvel
     $title = get_the_title($immobile_id);
-    $price = get_post_meta($immobile_id, 'price', true);
+    $price = floatval(get_post_meta($immobile_id, 'price', true));
     $featured_image_id = get_post_thumbnail_id($immobile_id);
     $featured_image_url = wp_get_attachment_image_src($featured_image_id, 'medium');
     
@@ -263,11 +263,11 @@ function render_highlight_payment_form($immobile_id = 0) {
         $image_url = $featured_image_url[0];
         $image_url = str_replace('http://', 'https://', $image_url);
     } else {
-        $image_url = get_template_directory_uri() . '/assets/images/no-image.jpg';
+        $image_url = get_stylesheet_directory_uri() . '/inc/custom/broker/assets/images/no-image.jpg';
     }
     
     // Obter o preço do destaque
-    $highlight_price = get_option('highlight_price', 30);
+    $highlight_price = floatval(get_option('highlight_price', 30));
     
     // Criar nonce para segurança
     $nonce = wp_create_nonce('highlight_payment_nonce');
@@ -275,8 +275,11 @@ function render_highlight_payment_form($immobile_id = 0) {
     // Carregar o SDK do Mercado Pago
     wp_enqueue_script('mercadopago-js', 'https://sdk.mercadopago.com/js/v2', array(), null, true);
     
+    // Carregar os estilos CSS
+    wp_enqueue_style('highlight-css', get_stylesheet_directory_uri() . '/inc/custom/broker/assets/css/highlight.css', array(), '1.0.2');
+    
     // Carregar o script de pagamento
-    wp_enqueue_script('highlight-payment-js', get_template_directory_uri() . '/inc/custom/broker/assets/js/highlight-payment.js', array('jquery'), '1.0', true);
+    wp_enqueue_script('highlight-payment-js', get_stylesheet_directory_uri() . '/inc/custom/broker/assets/js/highlight-payment.js', array('jquery'), '1.0.2', true);
     
     // Passar variáveis para o script
     wp_localize_script('highlight-payment-js', 'highlight_payment', array(
@@ -427,9 +430,294 @@ function render_highlight_payment_form($immobile_id = 0) {
         
         <!-- Ação de destacar -->
         <div class="highlight-action">
-            <button class="highlight-button" data-action="highlight-property">Destacar Imóvel Agora</button>
+            <button class="highlight-button" id="process-payment" data-action="highlight-property">Destacar Imóvel Agora</button>
         </div>
     </div>
+    
+    <?php if (!wp_style_is('highlight-css', 'enqueued')) : ?>
+    <style>
+        /* Estilos para a página de destaque de imóveis */
+        .highlight-payment-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .highlight-payment-container h2 {
+            color: #333;
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 24px;
+        }
+        
+        .highlight-payment-container h3 {
+            color: #333;
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        
+        /* Benefícios do destaque */
+        .highlight-benefits {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 6px;
+        }
+        
+        .highlight-benefits ul {
+            padding-left: 20px;
+            margin-bottom: 0;
+        }
+        
+        .highlight-benefits li {
+            margin-bottom: 8px;
+            position: relative;
+        }
+        
+        .highlight-benefits li:last-child {
+            margin-bottom: 0;
+        }
+        
+        /* Preview do imóvel */
+        .property-preview {
+            margin: 20px 0;
+        }
+        
+        .property-card {
+            display: flex;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .property-image {
+            width: 40%;
+            height: 200px;
+            overflow: hidden;
+        }
+        
+        .property-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .property-details {
+            width: 60%;
+            padding: 15px;
+        }
+        
+        .property-details h4 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 16px;
+        }
+        
+        .property-price {
+            font-size: 18px;
+            font-weight: bold;
+            color: #4CAF50;
+            margin-bottom: 0;
+        }
+        
+        /* Preço do destaque */
+        .highlight-pricing {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 6px;
+            text-align: center;
+        }
+        
+        .price-box {
+            margin: 15px 0;
+        }
+        
+        .price-label {
+            font-size: 16px;
+            color: #666;
+            margin-right: 10px;
+        }
+        
+        .price-value {
+            font-size: 22px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        
+        .price-info {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 0;
+        }
+        
+        /* Opções de pagamento */
+        .payment-options {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 6px;
+        }
+        
+        .payment-option {
+            margin-bottom: 15px;
+        }
+        
+        .payment-option label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        .payment-option input[type="radio"] {
+            margin-right: 10px;
+        }
+        
+        #saved-card-selection {
+            margin-top: 10px;
+            margin-left: 25px;
+        }
+        
+        .saved-card {
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: #fff;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        
+        .saved-card label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        /* Formulário do novo cartão */
+        #new-card-form {
+            margin-top: 15px;
+        }
+        
+        .form-row {
+            margin-bottom: 15px;
+        }
+        
+        .form-row label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        
+        .mp-card-input {
+            height: 40px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #fff;
+        }
+        
+        .card-details {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .card-exp, .card-cvc {
+            flex: 1;
+        }
+        
+        #cardholderName, #identificationNumber {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #fff;
+        }
+        
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        .checkbox-label input[type="checkbox"] {
+            margin-right: 10px;
+        }
+        
+        /* Termos de uso */
+        .terms-acceptance {
+            margin-top: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .terms-acceptance a {
+            color: #1e88e5;
+            text-decoration: none;
+        }
+        
+        .terms-acceptance a:hover {
+            text-decoration: underline;
+        }
+        
+        /* Botão de destaque */
+        .highlight-action {
+            text-align: center;
+            margin: 25px 0 10px;
+        }
+        
+        .highlight-button {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .highlight-button:hover {
+            background-color: #45a049;
+        }
+        
+        .highlight-button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        /* Mensagens de resultado */
+        #payment-result {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 6px;
+        }
+        
+        .success-message {
+            background-color: #e8f5e9;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        
+        .success-message h3 {
+            color: #2e7d32;
+            margin-top: 0;
+        }
+        
+        .error-message {
+            background-color: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+    </style>
+    <?php endif; ?>
     <?php
 }
 
@@ -462,84 +750,312 @@ function highlight_payment_shortcode($atts) {
         return '<div class="error-message">Imóvel não encontrado.</div>';
     }
     
-    return render_highlight_payment_form($immobile_id);
+    ob_start();
+    echo '<div style="font-family: Arial, sans-serif; line-height: 1.6;">';
+    render_highlight_payment_form($immobile_id);
+    echo '</div>';
+    return ob_get_clean();
 }
 add_shortcode('highlight_payment', 'highlight_payment_shortcode');
 
 /**
- * Função AJAX para processar o pagamento e criar a assinatura
+ * Processa o pagamento para destacar um imóvel via AJAX
  */
-function highlight_payment_ajax_handler() {
-    check_ajax_referer('highlight_payment_nonce', 'nonce');
+function highlight_payment_process_ajax() {
+    // Verificar o nonce de segurança
+    if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'highlight_payment_nonce')) {
+        wp_send_json_error(['message' => 'Erro de segurança. Recarregue a página e tente novamente.']);
+        return;
+    }
+    
+    // Log de início
+    error_log('Highlight Payment - Início do processamento de pagamento');
+    error_log('Highlight Payment - Dados recebidos: ' . print_r($_POST, true));
+    
+    // Verificar ID do imóvel
+    if (!isset($_POST['immobile_id']) || empty($_POST['immobile_id'])) {
+        error_log('Highlight Payment - Erro: ID do imóvel não fornecido');
+        wp_send_json_error(['message' => 'ID do imóvel não fornecido']);
+        return;
+    }
+    
+    $immobile_id = intval($_POST['immobile_id']);
+    $user_id = get_current_user_id();
     
     // Verificar se o usuário está logado
-    if (!is_user_logged_in()) {
-        wp_send_json_error(array('message' => 'Você precisa estar logado para realizar esta ação.'));
+    if (!$user_id) {
+        error_log('Highlight Payment - Erro: Usuário não logado');
+        wp_send_json_error(['message' => 'Você precisa estar logado para realizar esta operação']);
         return;
     }
     
-    // Obter dados do formulário
-    $user_id = get_current_user_id();
-    $immobile_id = isset($_POST['immobile_id']) ? intval($_POST['immobile_id']) : 0;
-    $payment_method = isset($_POST['payment_method']) ? sanitize_text_field($_POST['payment_method']) : '';
-    $card_id = isset($_POST['card_id']) ? sanitize_text_field($_POST['card_id']) : '';
-    
-    // Validar dados
-    if (empty($immobile_id)) {
-        wp_send_json_error(array('message' => 'ID do imóvel não fornecido.'));
-        return;
-    }
-    
-    // Verificar se o imóvel pertence ao corretor
+    // Verificar permissão para destacar o imóvel
+    $author_id = get_post_field('post_author', $immobile_id);
     $broker_id = get_post_meta($immobile_id, 'broker', true);
-    if ($broker_id != $user_id) {
-        wp_send_json_error(array('message' => 'Você não tem permissão para destacar este imóvel.'));
+    
+    $is_author = intval($author_id) === $user_id;
+    $is_broker = !empty($broker_id) && intval($broker_id) === $user_id;
+    $is_admin = current_user_can('administrator');
+    
+    if (!$is_author && !$is_broker && !$is_admin) {
+        error_log('Highlight Payment - Erro: Usuário sem permissão. user_id=' . $user_id . ', author_id=' . $author_id . ', broker_id=' . $broker_id);
+        wp_send_json_error(['message' => 'Você não tem permissão para destacar este imóvel']);
         return;
     }
     
-    // Verificar se o imóvel já está destacado
-    $is_sponsored = get_post_meta($immobile_id, 'is_sponsored', true) === 'yes';
-    if ($is_sponsored) {
-        wp_send_json_error(array('message' => 'Este imóvel já está destacado.'));
+    // Verificar método de pagamento
+    $payment_method = isset($_POST['payment_method']) ? sanitize_text_field($_POST['payment_method']) : 'direct';
+    
+    // Processar pagamento baseado no método
+    try {
+        error_log('Highlight Payment - Processando pagamento com método: ' . $payment_method);
+        
+        if ($payment_method === 'direct') {
+            // Método direto (sem pagamento real, apenas para testes ou admin)
+            if (!$is_admin) {
+                error_log('Highlight Payment - Erro: Tentativa de usar método direto sem ser administrador');
+                wp_send_json_error(['message' => 'Método de pagamento não autorizado']);
+                return;
+            }
+            
+            // Destacar o imóvel diretamente
+            error_log('Highlight Payment - Destaque direto como admin');
+            $result = highlight_payment_process($immobile_id);
+            
+            if (is_wp_error($result)) {
+                error_log('Highlight Payment - Erro ao processar destaque: ' . $result->get_error_message());
+                wp_send_json_error(['message' => $result->get_error_message()]);
+                return;
+            }
+            
+            wp_send_json_success([
+                'message' => 'Imóvel destacado com sucesso!',
+                'redirect_url' => get_permalink($immobile_id)
+            ]);
+            
+        } elseif ($payment_method === 'saved') {
+            // Pagamento com cartão salvo
+            if (!isset($_POST['card_id']) || empty($_POST['card_id'])) {
+                error_log('Highlight Payment - Erro: ID do cartão não fornecido');
+                wp_send_json_error(['message' => 'ID do cartão não fornecido']);
+                return;
+            }
+            
+            $card_id = sanitize_text_field($_POST['card_id']);
+            error_log('Highlight Payment - Processando com cartão salvo: ' . $card_id);
+            
+            // Verificar se o cartão pertence ao usuário
+            $user_cards = get_user_meta($user_id, 'mercadopago_cards', true);
+            
+            if (!is_array($user_cards) || !isset($user_cards[$card_id])) {
+                error_log('Highlight Payment - Erro: Cartão não encontrado para o usuário');
+                wp_send_json_error(['message' => 'Cartão não encontrado']);
+                return;
+            }
+            
+            // Criar assinatura
+            $subscription = create_mercadopago_subscription($immobile_id, $user_id, $card_id);
+            
+            if (is_wp_error($subscription)) {
+                error_log('Highlight Payment - Erro ao criar assinatura: ' . $subscription->get_error_message());
+                wp_send_json_error(['message' => $subscription->get_error_message()]);
+                return;
+            }
+            
+            // Salvar ID da assinatura
+            update_post_meta($immobile_id, 'highlight_subscription_id', $subscription['id']);
+            
+            // Destacar o imóvel
+            $result = highlight_payment_process($immobile_id);
+            
+            if (is_wp_error($result)) {
+                error_log('Highlight Payment - Erro ao processar destaque (cartão salvo): ' . $result->get_error_message());
+                
+                // Tentar cancelar a assinatura se o destaque falhar
+                if (isset($subscription['id'])) {
+                    highlight_cancel_mercadopago_subscription($subscription['id']);
+                }
+                
+                wp_send_json_error(['message' => $result->get_error_message()]);
+                return;
+            }
+            
+            wp_send_json_success([
+                'message' => 'Pagamento processado e imóvel destacado com sucesso!',
+                'redirect_url' => get_permalink($immobile_id)
+            ]);
+            
+        } elseif ($payment_method === 'new') {
+            // Pagamento com novo cartão
+            if (!isset($_POST['token']) || empty($_POST['token'])) {
+                error_log('Highlight Payment - Erro: Token do cartão não fornecido');
+                wp_send_json_error(['message' => 'Token do cartão não fornecido']);
+                return;
+            }
+            
+            $token = sanitize_text_field($_POST['token']);
+            $payment_method_id = isset($_POST['payment_method_id']) ? sanitize_text_field($_POST['payment_method_id']) : '';
+            $issuer_id = isset($_POST['issuer_id']) ? sanitize_text_field($_POST['issuer_id']) : '';
+            $identification_number = isset($_POST['identification_number']) ? sanitize_text_field($_POST['identification_number']) : '';
+            
+            error_log('Highlight Payment - Processando com novo cartão. Token: ' . substr($token, 0, 10) . '...');
+            
+            // Obter preço do destaque
+            $highlight_price = get_option('highlight_payment_price', 99.90);
+            
+            // Obter as configurações do Mercado Pago
+            $mp_config = highlight_get_mercadopago_config();
+            
+            if (empty($mp_config['access_token'])) {
+                error_log('Highlight Payment - Erro: Token de acesso do Mercado Pago não configurado');
+                wp_send_json_error(['message' => 'Erro de configuração do gateway de pagamento']);
+                return;
+            }
+            
+            // Preparar dados para a API
+            $api_data = [
+                'transaction_amount' => floatval($highlight_price),
+                'token' => $token,
+                'description' => 'Destaque de imóvel em SoCasaTop',
+                'installments' => 1,
+                'payment_method_id' => $payment_method_id,
+                'payer' => [
+                    'email' => wp_get_current_user()->user_email
+                ]
+            ];
+            
+            // Adicionar identificação se fornecida
+            if (!empty($identification_number)) {
+                $api_data['payer']['identification'] = [
+                    'type' => 'CPF',
+                    'number' => $identification_number
+                ];
+            }
+            
+            // Adicionar issuer_id se fornecido
+            if (!empty($issuer_id)) {
+                $api_data['issuer_id'] = $issuer_id;
+            }
+            
+            error_log('Highlight Payment - Dados para API: ' . json_encode($api_data));
+            
+            // Fazer requisição para a API
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, 'https://api.mercadopago.com/v1/payments');
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($api_data));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Authorization: Bearer ' . $mp_config['access_token'],
+                'Content-Type: application/json'
+            ]);
+            
+            $response = curl_exec($ch);
+            $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            
+            if (curl_errno($ch)) {
+                $curl_error = curl_error($ch);
+                error_log('Highlight Payment - Erro cURL: ' . $curl_error);
+                curl_close($ch);
+                wp_send_json_error(['message' => 'Erro na comunicação com o gateway de pagamento: ' . $curl_error]);
+                return;
+            }
+            
+            curl_close($ch);
+            
+            error_log('Highlight Payment - Resposta API (HTTP ' . $http_code . '): ' . $response);
+            
+            $payment_data = json_decode($response, true);
+            
+            if ($http_code < 200 || $http_code >= 300 || !$payment_data) {
+                $error_msg = isset($payment_data['message']) ? $payment_data['message'] : 'Erro desconhecido no processamento do pagamento';
+                error_log('Highlight Payment - Erro na resposta da API: ' . $error_msg);
+                wp_send_json_error(['message' => 'Erro no processamento do pagamento: ' . $error_msg]);
+                return;
+            }
+            
+            // Verificar status do pagamento
+            $status = isset($payment_data['status']) ? $payment_data['status'] : '';
+            
+            if ($status === 'approved') {
+                error_log('Highlight Payment - Pagamento aprovado! ID: ' . $payment_data['id']);
+                
+                // Salvar ID do pagamento
+                update_post_meta($immobile_id, 'highlight_payment_id', $payment_data['id']);
+                
+                // Destacar o imóvel
+                $result = highlight_payment_process($immobile_id);
+                
+                if (is_wp_error($result)) {
+                    error_log('Highlight Payment - Erro ao processar destaque após pagamento aprovado: ' . $result->get_error_message());
+                    wp_send_json_error(['message' => $result->get_error_message()]);
+                    return;
+                }
+                
+                wp_send_json_success([
+                    'message' => 'Pagamento aprovado e imóvel destacado com sucesso!',
+                    'redirect_url' => get_permalink($immobile_id)
+                ]);
+                
+            } elseif ($status === 'in_process' || $status === 'pending') {
+                error_log('Highlight Payment - Pagamento em processamento. ID: ' . $payment_data['id']);
+                
+                // Salvar ID do pagamento
+                update_post_meta($immobile_id, 'highlight_payment_id', $payment_data['id']);
+                update_post_meta($immobile_id, 'highlight_payment_status', $status);
+                
+                wp_send_json_success([
+                    'message' => 'Pagamento em processamento. Você receberá uma confirmação em breve.',
+                    'redirect_url' => get_permalink($immobile_id)
+                ]);
+                
+            } else {
+                // Pagamento rejeitado ou outro status
+                $status_detail = isset($payment_data['status_detail']) ? $payment_data['status_detail'] : 'unknown';
+                error_log('Highlight Payment - Pagamento não aprovado. Status: ' . $status . ', Detalhe: ' . $status_detail);
+                
+                $error_msg = 'Pagamento não aprovado.';
+                
+                // Obter mensagem amigável para o erro
+                if ($status === 'rejected') {
+                    $error_messages = [
+                        'cc_rejected_bad_filled_card_number' => 'Verifique o número do cartão.',
+                        'cc_rejected_bad_filled_date' => 'Verifique a data de validade.',
+                        'cc_rejected_bad_filled_other' => 'Verifique os dados do cartão.',
+                        'cc_rejected_bad_filled_security_code' => 'Verifique o código de segurança.',
+                        'cc_rejected_blacklist' => 'Não foi possível processar seu pagamento.',
+                        'cc_rejected_call_for_authorize' => 'Você deve autorizar o pagamento com seu banco.',
+                        'cc_rejected_card_disabled' => 'Ative seu cartão ou use outro meio de pagamento.',
+                        'cc_rejected_duplicated_payment' => 'Você já efetuou um pagamento com esse valor.',
+                        'cc_rejected_high_risk' => 'Seu pagamento foi recusado.',
+                        'cc_rejected_insufficient_amount' => 'Seu cartão possui saldo insuficiente.',
+                        'cc_rejected_invalid_installments' => 'Seu cartão não aceita esse número de parcelas.',
+                        'cc_rejected_max_attempts' => 'Você atingiu o limite de tentativas. Use outro cartão.',
+                    ];
+                    
+                    if (isset($error_messages[$status_detail])) {
+                        $error_msg .= ' ' . $error_messages[$status_detail];
+                    } else {
+                        $error_msg .= ' Motivo: ' . $status_detail;
+                    }
+                }
+                
+                wp_send_json_error(['message' => $error_msg]);
+                return;
+            }
+        } else {
+            // Método de pagamento desconhecido
+            error_log('Highlight Payment - Erro: Método de pagamento desconhecido: ' . $payment_method);
+            wp_send_json_error(['message' => 'Método de pagamento inválido']);
+            return;
+        }
+    } catch (Exception $e) {
+        error_log('Highlight Payment - Exceção: ' . $e->getMessage());
+        wp_send_json_error(['message' => 'Erro ao processar pagamento: ' . $e->getMessage()]);
         return;
     }
-    
-    error_log("Iniciando processo de destaque para imóvel ID: {$immobile_id}, Usuário: {$user_id}");
-    
-    // Processar pagamento
-    // Para teste, vamos simplesmente marcar o imóvel como destacado sem processar pagamento
-    update_post_meta($immobile_id, 'is_sponsored', 'yes');
-    
-    // Definir a data de expiração (30 dias a partir de hoje)
-    $expiration_date = date('Y-m-d H:i:s', strtotime('+30 days'));
-    update_post_meta($immobile_id, 'sponsored_expiration_date', $expiration_date);
-    update_post_meta($immobile_id, 'highlight_paused', 'no');
-    
-    // Registrar o histórico de pagamento (mesmo sem pagamento real)
-    $payment_history = get_post_meta($immobile_id, 'payment_history', true);
-    if (!is_array($payment_history)) {
-        $payment_history = array();
-    }
-    
-    $payment_history[] = array(
-        'type' => 'highlight',
-        'date' => date('Y-m-d H:i:s'),
-        'expiration' => $expiration_date,
-        'amount' => 99.00,
-        'status' => 'success'
-    );
-    
-    update_post_meta($immobile_id, 'payment_history', $payment_history);
-    
-    error_log("Destaque ativado com sucesso para imóvel ID: {$immobile_id}");
-    
-    // Enviar resposta de sucesso
-    wp_send_json_success(array(
-        'message' => 'Imóvel destacado com sucesso!',
-        'redirect_url' => '/corretores/painel/'
-    ));
 }
-add_action('wp_ajax_highlight_payment_process', 'highlight_payment_ajax_handler');
+add_action('wp_ajax_highlight_payment_process', 'highlight_payment_process_ajax');
 
 /**
  * Criar assinatura no Mercado Pago
@@ -663,120 +1179,70 @@ function create_highlight_payment_js() {
     $(document).ready(function() {
         console.log('Highlight Payment JS loaded');
         
-        // Inicializar o Mercado Pago
-        const mp = new MercadoPago(highlight_payment.public_key);
-        
-        // Configurar o formulário de cartão
-        const cardForm = mp.cardForm({
-            amount: highlight_payment.price,
-            autoMount: true,
-            form: {
-                id: 'card-form',
-                cardholderName: {
-                    id: 'cardholderName'
-                },
-                cardholderEmail: {
-                    id: 'cardholderEmail',
-                    value: ''
-                },
-                cardNumber: {
-                    id: 'cardNumberContainer',
-                    placeholder: 'Número do cartão'
-                },
-                expirationDate: {
-                    id: 'expirationDateContainer',
-                    placeholder: 'MM/YY'
-                },
-                securityCode: {
-                    id: 'securityCodeContainer',
-                    placeholder: 'CVV'
-                },
-                installments: {
-                    id: 'installments',
-                    placeholder: 'Parcelas'
-                },
-                identificationType: {
-                    id: 'docType',
-                    placeholder: 'Tipo de documento'
-                },
-                identificationNumber: {
-                    id: 'identificationNumber',
-                    placeholder: 'Número do documento'
-                },
-                issuer: {
-                    id: 'issuer',
-                    placeholder: 'Banco emissor'
-                }
-            },
-            callbacks: {
-                onFormMounted: function(error) {
-                    if (error) {
-                        console.error('Form Mounted error: ', error);
-                        return;
+        // Inicializar o Mercado Pago se disponível
+        try {
+            if (typeof MercadoPago !== 'undefined') {
+                const mp = new MercadoPago(highlight_payment.public_key);
+                
+                // Configurar o formulário de cartão
+                const cardForm = mp.cardForm({
+                    amount: highlight_payment.price,
+                    autoMount: true,
+                    form: {
+                        id: 'card-form',
+                        cardholderName: {
+                            id: 'cardholderName'
+                        },
+                        cardholderEmail: {
+                            id: 'cardholderEmail',
+                            value: ''
+                        },
+                        cardNumber: {
+                            id: 'cardNumberContainer',
+                            placeholder: 'Número do cartão'
+                        },
+                        expirationDate: {
+                            id: 'expirationDateContainer',
+                            placeholder: 'MM/YY'
+                        },
+                        securityCode: {
+                            id: 'securityCodeContainer',
+                            placeholder: 'CVV'
+                        }
+                    },
+                    callbacks: {
+                        onFormMounted: function(error) {
+                            if (error) {
+                                console.error('Form Mounted error: ', error);
+                                return;
+                            }
+                            console.log('Form mounted');
+                        },
+                        onSubmit: function(event) {
+                            event.preventDefault();
+                            
+                            if (!$('#accept-terms').is(':checked')) {
+                                showError('Você precisa aceitar os termos e condições para continuar.');
+                                return;
+                            }
+                            
+                            const cardData = cardForm.getCardFormData();
+                            console.log('CardForm data available: ', cardData);
+                            
+                            if (cardData.token) {
+                                processPayment('new', cardData.token);
+                            } else {
+                                showError('Erro ao processar o cartão. Verifique os dados e tente novamente.');
+                            }
+                        }
                     }
-                    console.log('Form mounted');
-                },
-                onFormUnmounted: function(error) {
-                    if (error) {
-                        console.error('Form Unmounted error: ', error);
-                        return;
-                    }
-                    console.log('Form unmounted');
-                },
-                onIdentificationTypesReceived: function(error, identificationTypes) {
-                    if (error) {
-                        console.error('IdentificationTypes error: ', error);
-                        return;
-                    }
-                    console.log('Identification types available: ', identificationTypes);
-                },
-                onPaymentMethodsReceived: function(error, paymentMethods) {
-                    if (error) {
-                        console.error('Payment Methods error: ', error);
-                        return;
-                    }
-                    console.log('Payment Methods available: ', paymentMethods);
-                },
-                onIssuersReceived: function(error, issuers) {
-                    if (error) {
-                        console.error('Issuers error: ', error);
-                        return;
-                    }
-                    console.log('Issuers available: ', issuers);
-                },
-                onInstallmentsReceived: function(error, installments) {
-                    if (error) {
-                        console.error('Installments error: ', error);
-                        return;
-                    }
-                    console.log('Installments available: ', installments);
-                },
-                onCardTokenReceived: function(error, token) {
-                    if (error) {
-                        console.error('Token error: ', error);
-                        return;
-                    }
-                    console.log('Token available: ', token);
-                },
-                onSubmit: function(event) {
-                    event.preventDefault();
-                    
-                    if (!$('#accept-terms').is(':checked')) {
-                        showError('Você precisa aceitar os termos e condições para continuar.');
-                        return;
-                    }
-                    
-                    const cardData = cardForm.getCardFormData();
-                    console.log('CardForm data available: ', cardData);
-                    
-                    if (cardData.token) {
-                        processPayment('new', cardData.token);
-                    } else {
-                        showError('Erro ao processar o cartão. Verifique os dados e tente novamente.');
-                    }
-                }
+                });
+            } else {
+                console.warn('MercadoPago não está disponível');
             }
-        });
+        } catch (e) {
+            console.error('Erro ao inicializar MercadoPago:', e);
+        }
         
         // Manipular cliques no botão de pagamento
         $('#process-payment').on('click', function(e) {
@@ -787,21 +1253,13 @@ function create_highlight_payment_js() {
                 return;
             }
             
-            const paymentMethod = $('input[name="payment_method"]:checked').val();
-            
-            if (paymentMethod === 'new' || !paymentMethod) {
-                // Se o método for cartão novo ou não selecionado, submeter o formulário do cartão
-                $('#card-form').submit();
-            } else {
-                // Senão, processar com o cartão salvo
-                processPayment(paymentMethod);
-            }
+            // Opção simplificada: processamento direto
+            processPayment('direct');
         });
         
         function processPayment(cardId, token = null) {
             // Mostrar loader
             $('#payment-result').show();
-            $('#payment-loader').show();
             $('.success-message, .error-message').hide();
             
             // Desabilitar botão de pagamento
@@ -811,30 +1269,27 @@ function create_highlight_payment_js() {
                 url: highlight_payment.ajax_url,
                 type: 'POST',
                 data: {
-                    action: 'highlight_payment_ajax_handler',
+                    action: 'highlight_payment_process',
                     nonce: highlight_payment.nonce,
                     immobile_id: highlight_payment.immobile_id,
-                    card_id: cardId,
+                    payment_method: cardId,
                     token: token,
-                    save_card: $('#save-card').is(':checked')
+                    save_card: $('#save_card').is(':checked')
                 },
                 success: function(response) {
                     if (response.success) {
-                        $('#payment-loader').hide();
-                        $('.success-message').show().html(response.data.message);
+                        $('.success-message').show().html('<h3>Pagamento realizado com sucesso!</h3><p>' + response.data.message + '</p>');
                         
                         // Redirecionar para a página do imóvel após alguns segundos
                         setTimeout(function() {
-                            window.location.href = response.data.redirect_url;
+                            window.location.href = response.data.redirect_url || '/corretores/painel/';
                         }, 3000);
                     } else {
-                        $('#payment-loader').hide();
-                        $('.error-message').show().text(response.data);
+                        $('.error-message').show().text(response.data.message || 'Erro ao processar o pagamento');
                         $('#process-payment').prop('disabled', false);
                     }
                 },
                 error: function() {
-                    $('#payment-loader').hide();
                     $('.error-message').show().text('Erro ao processar a requisição. Tente novamente.');
                     $('#process-payment').prop('disabled', false);
                 }
@@ -1134,147 +1589,255 @@ function toggle_highlight_pause() {
 add_action('wp_ajax_toggle_highlight_pause', 'toggle_highlight_pause');
 
 /**
- * Processa o pagamento do destaque via AJAX
- */
-function highlight_payment_process_ajax() {
-    // Verificar nonce para segurança
-    if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'highlight_payment_nonce')) {
-        wp_send_json_error(array('message' => 'Erro de segurança. Recarregue a página e tente novamente.'));
-        return;
-    }
-    
-    // Verificar se temos o ID do imóvel
-    if (!isset($_POST['immobile_id']) || empty($_POST['immobile_id'])) {
-        wp_send_json_error(array('message' => 'ID do imóvel não fornecido.'));
-        return;
-    }
-    
-    // Obter variáveis
-    $immobile_id = intval($_POST['immobile_id']);
-    $current_user_id = get_current_user_id();
-    $payment_method = isset($_POST['payment_method']) ? sanitize_text_field($_POST['payment_method']) : 'direct';
-    
-    // Verificar se o usuário está logado
-    if (!is_user_logged_in() || (!current_user_can('author') && !current_user_can('administrator'))) {
-        wp_send_json_error(array('message' => 'Você precisa estar logado como um corretor para destacar um imóvel.'));
-        return;
-    }
-    
-    // Verificar se o imóvel pertence ao usuário atual ou se é administrador
-    $author_id = get_post_field('post_author', $immobile_id);
-    $broker_id = get_post_meta($immobile_id, 'broker', true);
-    
-    // Verificar várias condições: se o usuário é autor, corretor ou administrador do imóvel
-    $is_author = intval($author_id) === $current_user_id;
-    $is_broker = !empty($broker_id) && intval($broker_id) === $current_user_id;
-    $is_admin = current_user_can('administrator');
-    
-    if (!$is_author && !$is_broker && !$is_admin) {
-        // Log para debug
-        error_log("Permissão negada para destacar imóvel: user_id={$current_user_id}, author_id={$author_id}, broker_id={$broker_id}");
-        
-        wp_send_json_error(array('message' => 'Você não tem permissão para destacar este imóvel.'));
-        return;
-    }
-    
-    // Verificar se o imóvel já está em destaque
-    $is_highlighted = get_post_meta($immobile_id, '_is_highlighted', true);
-    if ($is_highlighted) {
-        wp_send_json_error(array('message' => 'Este imóvel já está em destaque.'));
-        return;
-    }
-    
-    // Verificar qual método de pagamento foi usado
-    $payment_success = false;
-    
-    if ($payment_method === 'direct') {
-        // Pagamento direto (sem processamento de cartão)
-        $payment_success = true;
-    } elseif ($payment_method === 'saved' && isset($_POST['card_id'])) {
-        // Processar pagamento com cartão salvo
-        $card_id = sanitize_text_field($_POST['card_id']);
-        $saved_cards = get_user_meta($current_user_id, '_saved_payment_cards', true);
-        
-        if (!empty($saved_cards) && is_array($saved_cards)) {
-            foreach ($saved_cards as $card) {
-                if ($card['id'] === $card_id) {
-                    // Aqui processaria o pagamento com o cartão salvo
-                    $payment_success = true;
-                    break;
-                }
-            }
-        }
-        
-        if (!$payment_success) {
-            wp_send_json_error(array('message' => 'Cartão não encontrado ou inválido.'));
-            return;
-        }
-    } elseif ($payment_method === 'new' && isset($_POST['token'])) {
-        // Processar pagamento com novo cartão
-        $token = sanitize_text_field($_POST['token']);
-        $payment_method_id = isset($_POST['payment_method_id']) ? sanitize_text_field($_POST['payment_method_id']) : '';
-        $issuer_id = isset($_POST['issuer_id']) ? sanitize_text_field($_POST['issuer_id']) : '';
-        $identification_number = isset($_POST['identification_number']) ? sanitize_text_field($_POST['identification_number']) : '';
-        
-        // Salvar cartão se solicitado
-        if (isset($_POST['save_card']) && $_POST['save_card'] === 'true') {
-            // Aqui salvaria as informações do cartão
-            $card_data = array(
-                'id' => uniqid('card_'),
-                'payment_method' => $payment_method_id,
-                'last_four' => substr($token, -4),
-                'issuer_id' => $issuer_id
-            );
-            
-            $saved_cards = get_user_meta($current_user_id, '_saved_payment_cards', true);
-            if (empty($saved_cards) || !is_array($saved_cards)) {
-                $saved_cards = array();
-            }
-            
-            $saved_cards[] = $card_data;
-            update_user_meta($current_user_id, '_saved_payment_cards', $saved_cards);
-        }
-        
-        // Aqui processaria o pagamento com o novo cartão
-        $payment_success = true;
-    } else {
-        wp_send_json_error(array('message' => 'Método de pagamento inválido ou dados incompletos.'));
-        return;
-    }
-    
-    // Se o pagamento foi bem-sucedido, destaca o imóvel
-    if ($payment_success) {
-        // Data atual
-        $current_time = current_time('mysql');
-        $expiry_date = date('Y-m-d H:i:s', strtotime('+30 days', strtotime($current_time)));
-        
-        // Atualizar metas do imóvel
-        update_post_meta($immobile_id, '_is_highlighted', true);
-        update_post_meta($immobile_id, '_highlight_start_date', $current_time);
-        update_post_meta($immobile_id, '_highlight_expiry_date', $expiry_date);
-        update_post_meta($immobile_id, '_highlight_paused', false);
-        
-        // Registrar a transação
-        $transaction_id = uniqid('highlight_');
-        update_post_meta($immobile_id, '_highlight_transaction_id', $transaction_id);
-        
-        // Registrar no log
-        error_log("Imóvel destacado: ID {$immobile_id}, Usuário {$current_user_id}, Transação {$transaction_id}");
-        
-        // Enviar resposta de sucesso
-        wp_send_json_success(array(
-            'message' => 'Imóvel destacado com sucesso!',
-            'redirect_url' => home_url('/corretores/meus-imoveis/')
-        ));
-    } else {
-        wp_send_json_error(array('message' => 'Erro ao processar o pagamento. Tente novamente.'));
-    }
-}
-
-/**
- * Carrega os estilos CSS para a página de destaque
+ * Carrega os estilos e scripts para a página de pagamento de destaque
  */
 function enqueue_highlight_styles() {
-    wp_enqueue_style('highlight-css', get_template_directory_uri() . '/inc/custom/broker/assets/css/highlight.css', array(), '1.0');
+    wp_register_style('highlight-payment', get_stylesheet_directory_uri() . '/inc/custom/broker/assets/css/highlight.css', array(), '1.0.2');
+    wp_enqueue_style('highlight-payment');
+    
+    // Verificar se o SDK do MercadoPago já está registrado
+    if (!wp_script_is('mercadopago-sdk', 'registered')) {
+        wp_register_script('mercadopago-sdk', 'https://sdk.mercadopago.com/js/v2', array(), null, true);
+    }
+    
+    // Carregar o SDK
+    wp_enqueue_script('mercadopago-sdk');
+    
+    // Verificar se estamos numa página com o shortcode de destaque
+    global $post;
+    if (is_a($post, 'WP_Post') && has_shortcode($post->post_content, 'highlight_payment_form')) {
+        $mp_config = highlight_get_mercadopago_config();
+        
+        // Debug
+        error_log('Highlight Payment - Carregando scripts com configuração: ' . json_encode($mp_config));
+        
+        // Obter imóvel pelo parâmetro na URL
+        $immobile_id = isset($_GET['immobile_id']) ? intval($_GET['immobile_id']) : 0;
+        
+        // Obter preço do destaque
+        $price = get_option('highlight_payment_price', 99.90);
+        
+        // Parâmetros para o script JS
+        $params = array(
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('highlight_payment_nonce'),
+            'immobile_id' => $immobile_id,
+            'price' => $price,
+            'public_key' => $mp_config['public_key'],
+            'sandbox' => $mp_config['sandbox'] ? 'true' : 'false',
+            'debug' => true
+        );
+        
+        // Informações de depuração
+        error_log('Highlight Payment - Inicializando JS com parâmetros: ' . json_encode($params));
+        
+        // Registrar e carregar o script principal
+        wp_register_script('highlight-payment', get_stylesheet_directory_uri() . '/inc/custom/broker/assets/js/highlight-payment.js', array('jquery', 'mercadopago-sdk'), '1.0.2', true);
+        wp_localize_script('highlight-payment', 'highlight_payment', $params);
+        wp_enqueue_script('highlight-payment');
+    }
 }
 add_action('wp_enqueue_scripts', 'enqueue_highlight_styles');
+
+/**
+ * Verifica se as configurações do MercadoPago estão corretas
+ * e tenta detectar problemas comuns
+ */
+function check_mercadopago_configuration() {
+    // Verificar se é uma página de admin
+    if (!is_admin()) {
+        return;
+    }
+    
+    // Verificar se é a página de configurações do tema
+    $screen = get_current_screen();
+    if (!$screen || $screen->id !== 'appearance_page_theme-options') {
+        return;
+    }
+    
+    // Obter configurações
+    $mp_config = highlight_get_mercadopago_config();
+    
+    // Verificar chave pública
+    if (empty($mp_config['public_key'])) {
+        add_settings_error(
+            'mercadopago_messages',
+            'mercadopago_public_key_missing',
+            'A chave pública do MercadoPago não está configurada.',
+            'error'
+        );
+    } elseif (strpos($mp_config['public_key'], 'TEST-') === 0 && !$mp_config['sandbox']) {
+        add_settings_error(
+            'mercadopago_messages',
+            'mercadopago_public_key_test',
+            'Você está usando uma chave pública de TESTE, mas o modo sandbox não está ativado.',
+            'warning'
+        );
+    } elseif (strpos($mp_config['public_key'], 'TEST-') !== 0 && $mp_config['sandbox']) {
+        add_settings_error(
+            'mercadopago_messages',
+            'mercadopago_public_key_production',
+            'Você está usando uma chave pública de PRODUÇÃO, mas o modo sandbox está ativado.',
+            'warning'
+        );
+    }
+    
+    // Verificar token de acesso
+    if (empty($mp_config['access_token'])) {
+        add_settings_error(
+            'mercadopago_messages',
+            'mercadopago_access_token_missing',
+            'O token de acesso do MercadoPago não está configurado.',
+            'error'
+        );
+    } elseif (strpos($mp_config['access_token'], 'TEST-') === 0 && !$mp_config['sandbox']) {
+        add_settings_error(
+            'mercadopago_messages',
+            'mercadopago_access_token_test',
+            'Você está usando um token de acesso de TESTE, mas o modo sandbox não está ativado.',
+            'warning'
+        );
+    } elseif (strpos($mp_config['access_token'], 'TEST-') !== 0 && $mp_config['sandbox']) {
+        add_settings_error(
+            'mercadopago_messages',
+            'mercadopago_access_token_production',
+            'Você está usando um token de acesso de PRODUÇÃO, mas o modo sandbox está ativado.',
+            'warning'
+        );
+    }
+    
+    // Verificar preço do destaque
+    $price = get_option('highlight_payment_price', 0);
+    if ($price <= 0) {
+        add_settings_error(
+            'mercadopago_messages',
+            'highlight_price_invalid',
+            'O preço para destacar imóveis não está configurado corretamente.',
+            'error'
+        );
+    }
+    
+    // Exibir mensagens
+    settings_errors('mercadopago_messages');
+}
+add_action('admin_notices', 'check_mercadopago_configuration');
+
+/**
+ * Adiciona um endpoint para teste de carregamento do SDK do MercadoPago
+ */
+function highlight_mercadopago_test_endpoint() {
+    add_rewrite_rule(
+        'mercadopago-test$',
+        'index.php?mercadopago_test=true',
+        'top'
+    );
+}
+add_action('init', 'highlight_mercadopago_test_endpoint');
+
+/**
+ * Adiciona a query var para o teste do MercadoPago
+ */
+function highlight_mercadopago_query_vars($vars) {
+    $vars[] = 'mercadopago_test';
+    return $vars;
+}
+add_filter('query_vars', 'highlight_mercadopago_query_vars');
+
+/**
+ * Renderiza a página de teste do MercadoPago
+ */
+function highlight_mercadopago_test_template() {
+    if (get_query_var('mercadopago_test') === 'true') {
+        // Carregar o SDK do MercadoPago
+        wp_enqueue_script('mercadopago-sdk', 'https://sdk.mercadopago.com/js/v2', array(), null, true);
+        
+        // Obter configuração
+        $mp_config = highlight_get_mercadopago_config();
+        
+        // Parâmetros para o script de teste
+        $params = array(
+            'public_key' => $mp_config['public_key'],
+            'sandbox' => $mp_config['sandbox'] ? 'true' : 'false'
+        );
+        
+        // Script inline para teste
+        $test_script = "
+            console.log('Teste de carregamento do MercadoPago SDK');
+            console.log('Configuração:', " . json_encode($params) . ");
+            
+            document.addEventListener('DOMContentLoaded', function() {
+                var sdkStatus = document.getElementById('sdk-status');
+                var sdkVersion = document.getElementById('sdk-version');
+                var configInfo = document.getElementById('config-info');
+                
+                // Verificar se o SDK está carregado
+                if (typeof MercadoPago !== 'undefined') {
+                    sdkStatus.textContent = 'Carregado com sucesso';
+                    sdkStatus.style.color = 'green';
+                    
+                    // Inicializar o SDK
+                    try {
+                        var mp = new MercadoPago('" . esc_js($mp_config['public_key']) . "');
+                        sdkVersion.textContent = 'Inicializado com sucesso. SDK versão carregada.';
+                        configInfo.textContent = 'Usando chave pública: " . esc_js($mp_config['public_key']) . "';
+                    } catch(e) {
+                        sdkVersion.textContent = 'Erro ao inicializar: ' + e.message;
+                        sdkVersion.style.color = 'red';
+                    }
+                } else {
+                    sdkStatus.textContent = 'Não carregado';
+                    sdkStatus.style.color = 'red';
+                    configInfo.textContent = 'O SDK do MercadoPago não foi carregado corretamente.';
+                }
+            });
+        ";
+        
+        wp_add_inline_script('mercadopago-sdk', $test_script);
+        
+        // Exibir template de teste
+        $test_html = '
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>Teste do MercadoPago SDK</title>
+                <style>
+                    body { font-family: Arial, sans-serif; line-height: 1.6; margin: 20px; }
+                    .container { max-width: 800px; margin: 0 auto; }
+                    .card { border: 1px solid #ddd; border-radius: 4px; padding: 20px; margin-bottom: 20px; }
+                    h1 { color: #333; }
+                    .status-label { font-weight: bold; }
+                    .test-item { margin-bottom: 15px; }
+                </style>
+                ' . wp_head() . '
+            </head>
+            <body>
+                <div class="container">
+                    <h1>Teste de integração do MercadoPago</h1>
+                    <div class="card">
+                        <div class="test-item">
+                            <span class="status-label">Status do SDK:</span> 
+                            <span id="sdk-status">Verificando...</span>
+                        </div>
+                        <div class="test-item">
+                            <span class="status-label">Versão/Inicialização:</span> 
+                            <span id="sdk-version">Verificando...</span>
+                        </div>
+                        <div class="test-item">
+                            <span class="status-label">Configuração:</span> 
+                            <span id="config-info">Verificando...</span>
+                        </div>
+                    </div>
+                    <p>Esta página verifica se o SDK do MercadoPago está sendo carregado corretamente.</p>
+                    <p><a href="' . home_url() . '">Voltar para a página inicial</a></p>
+                </div>
+                ' . wp_footer() . '
+            </body>
+            </html>
+        ';
+        
+        echo $test_html;
+        exit;
+    }
+}
+add_action('template_redirect', 'highlight_mercadopago_test_template');
