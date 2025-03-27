@@ -216,7 +216,7 @@ function render_highlight_payment_form($immobile_id = null) {
 
     // Verificar se o imóvel existe
     $immobile = get_post($immobile_id);
-    if (!$immobile || $immobile->post_type !== 'imovel') {
+    if (!$immobile || $immobile->post_type !== 'immobile') {
         error_log("Imóvel não encontrado: $immobile_id");
         return '<div class="error-message">Imóvel não encontrado.</div>';
     }
@@ -291,11 +291,12 @@ function render_highlight_payment_form($immobile_id = null) {
     
     // Se não encontrou a imagem destacada, tentar obter a primeira imagem da galeria
     if (empty($image_url)) {
-        $gallery_ids = get_post_meta($immobile_id, 'property_gallery', true);
-        if (!empty($gallery_ids) && is_array($gallery_ids)) {
-            $first_image_id = reset($gallery_ids);
+        $gallery = get_post_meta($immobile_id, 'immobile_gallery', true);
+        $gallery_ids = $gallery ? explode(',', $gallery) : [];
+        if (!empty($gallery_ids)) {
+            $first_image_id = $gallery_ids[0];
             if ($first_image_id) {
-                $image_url = wp_get_attachment_url($first_image_id);
+                $image_url = wp_get_attachment_image_url($first_image_id, 'full');
                 
                 // Garantir que a URL seja HTTPS
                 if ($image_url && strpos($image_url, 'http://') === 0) {

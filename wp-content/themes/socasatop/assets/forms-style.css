@@ -1,0 +1,117 @@
+/* Estilos para os Formulários Pop-up */
+
+/* Overlay do formulário pop-up */
+.form-popup-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+/* Container do formulário pop-up */
+.form-popup-container {
+    width: 318px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+}
+
+/* Conteúdo do formulário pop-up */
+.form-popup-content {
+    padding: 20px;
+}
+
+/* Título do formulário */
+.form-popup-content h2 {
+    color: #0066cc;
+    font-size: 20px;
+    font-weight: bold;
+    text-align: center;
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+/* Divisor/Linha abaixo do título */
+.form-divider {
+    height: 2px;
+    background-color: #e0e0e0;
+    margin: 10px 0 20px 0;
+}
+
+/* Texto de instruções */
+.form-popup-content p {
+    font-size: 14px;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+/* Campo de texto para links */
+#links-imoveis {
+    width: 100%;
+    height: 120px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    resize: none;
+    font-size: 13px;
+}
+
+/* Campo de número para quantidade de imóveis */
+#quantidade-imoveis {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+/* Container de checkboxes */
+.checkbox-container {
+    margin-bottom: 20px;
+}
+
+/* Estilo para as labels dos checkboxes */
+.checkbox-container label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+/* Botão de envio do formulário */
+.btn-form-popup {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    background-color: #0066cc;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    text-align: center;
+}
+
+.btn-form-popup:hover {
+    background-color: #0055aa;
+}
+
+/* Mensagem de sucesso */
+.mensagem-sucesso {
+    text-align: center;
+    padding: 20px 0;
+}
+
+.mensagem-sucesso p {
+    font-size: 16px;
+    margin-bottom: 20px;
+    color: #28a745;
+} 

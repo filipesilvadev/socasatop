@@ -70,13 +70,14 @@ class Search_AI {
                 'restUrl' => esc_url_raw(rest_url()),
                 'nonce' => wp_create_nonce('wp_rest')
             ]);
+            
+            // Enfileirar o script aqui, no hook correto
+            wp_enqueue_script('smart-search-script');
         }
     }
 
     public function render_smart_search($atts = [], $content = null) {
-        if (!is_admin()) {
-            wp_enqueue_script('smart-search-script');
-        }
+        // Removemos o enfileiramento incorreto daqui
         return '<div id="smart-search-root" class="smart-search-container"></div>';
     }
 

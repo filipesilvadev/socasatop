@@ -4,7 +4,9 @@ html, body, html body p, html body span, html body h1, html body h2, html body h
 }
 
 /* Utility Classes */
-.super-hidden {
+.super-hidden,
+.carousel-nav,
+.pagination-dots {
   display: none!important;   
 }
 
@@ -111,6 +113,10 @@ button.absolute.right-4.top-1\/2.-translate-y-1\/2 {
   .w-\[250px\].h-\[250px\].mx-auto.mb-8{
       margin-bottom: -267px;
       margin-top: -286px;
+  }
+
+  .sponsored-carousel{
+    margin: 60px 0 0 0;
   }
 }
 

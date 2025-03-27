@@ -1,0 +1,31 @@
+/**
+ * Estilos para formulários Elementor
+ * Corrige problemas de exibição e personaliza mensagens
+ */
+
+/* Estilo para mensagem de sucesso no popup específico */
+.elementor-popup-modal[data-elementor-id="14752"] .elementor-message-success {
+    color: #3a66c4 !important;
+    font-weight: 500;
+    margin-top: 15px;
+    text-align: center;
+}
+
+/* Esconder mensagens de erro no popup específico */
+.elementor-popup-modal[data-elementor-id="14752"] .elementor-message-danger,
+.elementor-popup-modal[data-elementor-id="14752"] .elementor-message-error {
+    display: none !important;
+}
+
+/* Melhorias gerais para mensagens de sucesso */
+.elementor-message-success {
+    padding: 12px;
+    border-radius: 4px;
+    margin-top: 15px;
+    background-color: rgba(58, 102, 196, 0.1);
+}
+
+/* Esconder mensagens de erro parsererror */
+.parsererror {
+    display: none !important;
+} 

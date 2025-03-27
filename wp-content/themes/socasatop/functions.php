@@ -8,21 +8,41 @@ add_action('wp_enqueue_scripts', 'child_enqueue__parent_scripts');
 
 function scripts_so_casa_top()
 {
-    wp_register_style('so-casa-top', get_stylesheet_directory_uri() . '/assets/socasatop.css', array(), '1.0.0', 'all');
+    wp_register_style('so-casa-top', get_stylesheet_directory_uri() . '/assets/socasatop.css', array(), '1.0.1', 'all');
     wp_enqueue_style('so-casa-top');
 
     wp_register_style('select2', 'https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css', array(), '2.4.1', 'all');
     wp_enqueue_style('select2');
 
     wp_enqueue_script('select2', 'https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js', array('jquery'), '2.4.1', true);
-    wp_enqueue_script('so-casa-top', get_stylesheet_directory_uri() . '/assets/socasatop.js', array('jquery'), '1.0.0', true);
+    wp_enqueue_script('so-casa-top', get_stylesheet_directory_uri() . '/assets/socasatop.js', array('jquery'), '1.0.1', true);
+    wp_enqueue_script('js-forms', get_stylesheet_directory_uri() . '/assets/js-forms.js', array('jquery', 'so-casa-top'), '1.0.1', true);
 
     $options = [
         'ajax_url' => admin_url('admin-ajax.php'),
         'nonce' => wp_create_nonce('ajax_nonce')
     ];
 
+    // Adicionar dados do usuário atual se estiver logado
+    if (is_user_logged_in()) {
+        $current_user = wp_get_current_user();
+        $options['user_id'] = $current_user->ID;
+        $options['user_display_name'] = $current_user->display_name;
+        $options['user_firstname'] = $current_user->user_firstname;
+        $options['user_firstname2'] = $current_user->first_name;
+        $options['user_login'] = $current_user->user_login;
+        $options['user_email'] = $current_user->user_email;
+        $options['user_phone'] = get_user_meta($current_user->ID, 'phone', true);
+        $options['user_whatsapp'] = get_user_meta($current_user->ID, 'whatsapp', true);
+        $options['user_telefone'] = get_user_meta($current_user->ID, 'telefone', true);
+        $options['is_logged_in'] = true;
+    } else {
+        $options['is_logged_in'] = false;
+    }
+
+    // Disponibilizar os dados para os scripts
     wp_localize_script('so-casa-top', 'site', $options);
+    wp_localize_script('js-forms', 'site', $options);  // Garantir que o js-forms tenha acesso direto
 }
 add_action('wp_enqueue_scripts', 'scripts_so_casa_top', 5);
 
@@ -48,74 +68,8 @@ add_action('wp_enqueue_scripts', 'enqueue_font_awesome');
  * Função para carregar script que suprime erros de webhook do Elementor
  */
 function enqueue_elementor_form_fix() {
-    wp_register_script('elementor-form-error-fix', '', [], false, true);
-    wp_enqueue_script('elementor-form-error-fix');
-    
-    $script = "
-    jQuery(document).ready(function($) {
-        // Interceptar envios de formulário Elementor
-        $(document).on('submit_success', '.elementor-form', function(event) {
-            // Prevenimos a exibição de mensagens de erro com verificação contínua
-            for (let i = 0; i < 5; i++) {
-                setTimeout(function() {
-                    $('.elementor-message-danger').remove();
-                    $('.elementor-message-error').remove();
-                    $('.elementor-form-display-error').remove();
-                    $('.elementor-error').remove();
-                }, i * 200);
-            }
-        });
-        
-        // Observamos o DOM para detectar quando mensagens de erro aparecem
-        const observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                if (mutation.addedNodes && mutation.addedNodes.length > 0) {
-                    for (let i = 0; i < mutation.addedNodes.length; i++) {
-                        const node = mutation.addedNodes[i];
-                        // Verificamos todos os possíveis tipos de mensagens de erro
-                        if (node.classList && 
-                            (node.classList.contains('elementor-message-danger') || 
-                             node.classList.contains('elementor-message-error') ||
-                             node.classList.contains('elementor-form-display-error') ||
-                             node.classList.contains('elementor-error'))) {
-                            // Remove a mensagem de erro
-                            node.remove();
-                        }
-                    }
-                }
-            });
-        });
-        
-        // Configura o observador para monitorar todos os forms Elementor
-        $('.elementor-form').each(function() {
-            observer.observe(this.parentNode, { childList: true, subtree: true });
-        });
-        
-        // Hook para interceptar requisições Ajax
-        $(document).ajaxComplete(function(event, xhr, settings) {
-            if (settings.url.includes('elementor_pro/forms/actions')) {
-                // Remove qualquer mensagem de erro após qualquer requisição Ajax do Elementor Forms
-                setTimeout(function() {
-                    $('.elementor-message-danger').remove();
-                    $('.elementor-message-error').remove();
-                    $('.elementor-form-display-error').remove();
-                    $('.elementor-error').remove();
-                }, 100);
-            }
-        });
-        
-        // Forçar sucesso em formulários Elementor após envio bem-sucedido
-        $(document).on('elementor/forms/success', function(e, response, form) {
-            // Force uma mensagem de sucesso, substituindo qualquer erro
-            if (form.find('.elementor-message-danger, .elementor-message-error, .elementor-form-display-error, .elementor-error').length) {
-                form.find('.elementor-message-danger, .elementor-message-error, .elementor-form-display-error, .elementor-error').remove();
-                form.append('<div class=\"elementor-message elementor-message-success\" role=\"alert\">Formulário enviado com sucesso!</div>');
-            }
-        });
-    });
-    ";
-    
-    wp_add_inline_script('elementor-form-error-fix', $script);
+    wp_enqueue_script('elementor-form-error-fix', get_stylesheet_directory_uri() . '/assets/elementor-form-fix.js', array('jquery'), '1.0.1', true);
+    wp_enqueue_style('elementor-form-fix-style', get_stylesheet_directory_uri() . '/assets/elementor-form-fix.css', array(), '1.0.1', 'all');
 }
 add_action('wp_enqueue_scripts', 'enqueue_elementor_form_fix');
 
@@ -175,70 +129,6 @@ function log_elementor_form_errors($ajax_handler) {
 }
 add_action('elementor_pro/forms/validation', 'log_elementor_form_errors', 999);
 
-/**
- * Estilo CSS para o formulário de assessoria
- */
-function assessoria_form_style() {
-    ?>
-    <style>
-    /* Estilo para mensagem de sucesso no popup específico */
-    .elementor-popup-modal[data-elementor-id="14752"] .elementor-message-success {
-        color: #3a66c4 !important;
-        font-weight: 500;
-        margin-top: 15px;
-        text-align: center;
-    }
-    
-    /* Esconder mensagens de erro no popup específico */
-    .elementor-popup-modal[data-elementor-id="14752"] .elementor-message-danger,
-    .elementor-popup-modal[data-elementor-id="14752"] .elementor-message-error {
-        display: none !important;
-    }
-    </style>
-    <script>
-    jQuery(document).ready(function($) {
-        // Simples substituição de mensagens para o formulário específico
-        $(document).on('submit_success', '.elementor-form', function(event) {
-            // Verificar se é o popup de assessoria específico
-            if ($('.elementor-popup-modal[data-elementor-id="14752"]').is(':visible')) {
-                var $form = $(this);
-                
-                // Remover mensagens existentes
-                $form.find('.elementor-message').remove();
-                
-                // Adicionar mensagem de sucesso personalizada
-                setTimeout(function() {
-                    $form.append('<div class="elementor-message elementor-message-success" role="alert">Entramos em contato através do seu WhatsApp</div>');
-                }, 100);
-            }
-        });
-        
-        // Tratamento básico para erros de parsererror 
-        // (sem impedir a execução do webhook, apenas modificando a UI)
-        $(document).ajaxError(function(event, jqXHR, ajaxSettings, thrownError) {
-            if ($('.elementor-popup-modal[data-elementor-id="14752"]').is(':visible') && 
-                thrownError === 'parsererror') {
-                
-                console.log('Erro de parse detectado, modificando aparência');
-                
-                // Esconder elementos de erro de parse usando CSS
-                $('.parsererror').hide();
-                
-                // Adicionar mensagem de sucesso se não existir
-                var $form = $('.elementor-popup-modal[data-elementor-id="14752"] .elementor-form');
-                if ($form.length && !$form.find('.elementor-message-success').length) {
-                    setTimeout(function() {
-                        $form.append('<div class="elementor-message elementor-message-success" role="alert">Entramos em contato através do seu WhatsApp</div>');
-                    }, 200);
-                }
-            }
-        });
-    });
-    </script>
-    <?php
-}
-add_action('wp_footer', 'assessoria_form_style', 999);
-
 include_once "inc/custom/immobile/post.php";
 include_once "inc/custom/lead/post.php";
 include_once "inc/custom/broker/post.php";
@@ -248,10 +138,8 @@ include_once "inc/custom/search-ai/post.php";
 include_once "inc/custom/broker/register.php";
 include_once "inc/custom/avisos/post.php";
 
-
 include_once "inc/filter/settings.php";
 include_once "inc/ajax.php";
-
 
 function display_amount()
 {
@@ -352,43 +240,25 @@ function display_hidden_user_not_admin()
 }
 add_shortcode('hidden_user_not_admin', 'display_hidden_user_not_admin');
 
-
 function redirect_if_not_logged_in() {
-  $login_page = get_page_by_path('login');
-  $register_page = get_page_by_path('cadastro-corretor');
-  $ia_page = get_page_by_path('so-casa-top-ia');
-  
-  $loginID = $login_page ? $login_page->ID : 0;
-  $registerID = $register_page ? $register_page->ID : 0;
-  $ia_page_ID = $ia_page ? $ia_page->ID : 0;
-  
+  $loginID = get_page_by_path('login')->ID;
+  $registerID = get_page_by_path('cadastro-corretor')->ID;
+  $ia_page_ID = get_page_by_path('so-casa-top-ia')->ID;
   $current_url = $_SERVER['REQUEST_URI'];
 
-  // Páginas que não precisam de autenticação
-  if (($ia_page_ID && is_page($ia_page_ID)) || 
-      ($registerID && is_page($registerID)) ||
-      ($loginID && is_page($loginID)) ||
+  if (is_page($ia_page_ID) || 
+      is_page($registerID) ||
       is_singular('immobile') || 
-      strpos($current_url, '/listaimoveis/') === 0 ||
-      is_front_page() ||
-      is_home()) {
+      strpos($current_url, '/listaimoveis/') === 0) {
       return;
   }
 
-  // Se não estiver logado e não estiver na página de login, redireciona para o login
-  if (!is_user_logged_in()) {
-      if ($loginID) {
-          $redirect_url = add_query_arg('redirect_to', urlencode($current_url), get_permalink($loginID));
-          wp_redirect($redirect_url);
-          exit;
-      } else {
-          wp_redirect(wp_login_url($current_url));
-          exit;
-      }
+  if (!is_user_logged_in() && !is_page($loginID)) {
+      wp_redirect(get_permalink($ia_page_ID));
+      exit;
   }
 }
 add_action('template_redirect', 'redirect_if_not_logged_in');
-
 
 function enqueue_smart_search_assets() {
   wp_enqueue_script('react', 'https://unpkg.com/react@17.0.2/umd/react.production.min.js', array(), '17.0.2', true);
@@ -408,6 +278,14 @@ function enqueue_smart_search_assets() {
   ));
 }
 add_action('wp_enqueue_scripts', 'enqueue_smart_search_assets', 100);
+
+wp_enqueue_script(
+  'smart-search',
+  get_stylesheet_directory_uri() . '/inc/custom/search-ai/assets/js/smart-search.js',
+  array('react', 'react-dom'),
+  '1.0.0',
+  true
+);
 
 // Adicionar função de debug
 function add_smart_search_debug() {
@@ -429,7 +307,6 @@ add_action('init', function() {
   error_log('Namespace API: ' . rest_url('smart-search/v1/'));
 });
 
-
 add_action('wp_footer', function() {
   if (is_page()) {  // ou ajuste conforme a página onde está usando o shortcode
       ?>
@@ -442,9 +319,6 @@ add_action('wp_footer', function() {
   }
 });
 
-
-
-
 include_once "inc/custom/broker/dashboard.php";
 include_once "inc/custom/broker/metrics.php";
 include_once "inc/custom/broker/shortcodes/painel.php";
@@ -452,8 +326,6 @@ include_once "inc/custom/immobile/contact-form.php";
 include_once "inc/custom/immobile/metrics.php";
 include_once "inc/custom/search-ai/views.php";
 include_once "inc/custom/search-ai/checkout.php";
-
-
 
 function enqueue_mp_scripts() {
   if (is_page('checkout')) {
@@ -576,7 +448,6 @@ function render_pagamento_confirmado() {
 }
 add_shortcode('pagamento_confirmado', 'render_pagamento_confirmado');
 
-
 function register_elementor_rest_routes() {
   register_rest_route('smart-search/v1', '/search', array(
       'methods' => 'GET',
@@ -594,7 +465,7 @@ include_once "inc/custom/search-ai/sponsored.php";
 include_once "inc/custom/immobile/create-immobile-flow.php";
 include_once "inc/custom/immobile/ajax-payment.php";
 
-// Enqueue jQuery Mask Plugin corretamente
+// Função para carregar o script jquery-mask no hook correto
 function enqueue_jquery_mask() {
     wp_enqueue_script('jquery-mask', 'https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js', array('jquery'), '1.14.16', true);
 }
@@ -653,7 +524,6 @@ function migrate_existing_broker_data() {
 }
 
 add_action('admin_init', 'migrate_existing_broker_data');
-
 
 function custom_media_gallery_metabox() {
   add_meta_box(
@@ -1019,315 +889,79 @@ function load_custom_shortcodes() {
     // Carregar o arquivo de configurações de pagamento
     include_once(get_stylesheet_directory() . '/inc/custom/broker/payment-settings.php');
     
-    // Carregar diretamente o highlight-payment.php 
-    include_once(get_stylesheet_directory() . '/inc/custom/broker/highlight-payment.php');
-    
-    // Carregar o formulário de propriedade
-    include_once(get_stylesheet_directory() . '/inc/custom/broker/property-form.php');
-    
     // Carregar o arquivo de shortcodes
     include_once(get_stylesheet_directory() . '/inc/custom/broker/shortcodes.php');
     
     // Carregar o arquivo de integração com o Mercado Pago
     include_once(get_stylesheet_directory() . '/inc/custom/immobile/mercadopago.php');
-    
-    // Carregar estilos de pagamento
-    $payment_styles_url = get_stylesheet_directory_uri() . '/inc/custom/broker/assets/css/payment-styles.css';
-    $payment_styles_version = file_exists(get_stylesheet_directory() . '/inc/custom/broker/assets/css/payment-styles.css') ? 
-                            filemtime(get_stylesheet_directory() . '/inc/custom/broker/assets/css/payment-styles.css') : 
-                            time();
-    wp_register_style('payment-styles', $payment_styles_url, array(), $payment_styles_version);
-    wp_enqueue_style('payment-styles');
 }
 add_action('init', 'load_custom_shortcodes', 5);
 
 /**
- * Enqueue theme assets
+ * Função para carregar os scripts e estilos dos formulários personalizados
  */
-function socasatop_enqueue_styles() {
-    // Carregar o estilo do tema pai (Hello Elementor)
-    wp_enqueue_style('hello-elementor', get_template_directory_uri() . '/style.css');
+function enqueue_custom_forms_assets() {
+    wp_enqueue_style('forms-style', get_stylesheet_directory_uri() . '/assets/forms-style.css', array(), '1.0.0', 'all');
+    wp_enqueue_script('js-forms', get_stylesheet_directory_uri() . '/assets/js-forms.js', array('jquery'), '1.0.0', true);
     
-    // Carregar o estilo do tema filho
-    wp_enqueue_style('socasatop-style', get_stylesheet_uri(), array('hello-elementor'));
-    
-    // Carregar estilos adicionais do tema filho
-    wp_enqueue_style('socasatop-assets', get_stylesheet_directory_uri() . '/assets/socasatop.css', array(), '1.0.0');
-    
-    // Carregar scripts
-    wp_enqueue_script('socasatop-js', get_stylesheet_directory_uri() . '/assets/socasatop.js', array('jquery'), '1.0.0', true);
-}
-add_action('wp_enqueue_scripts', 'socasatop_enqueue_styles');
-
-// Verificar e carregar o dashboard de corretores
-add_action('init', function() {
-    $dashboard_file = get_stylesheet_directory() . '/inc/custom/broker/dashboard.php';
-    if (file_exists($dashboard_file)) {
-        require_once($dashboard_file);
-    } else {
-        error_log('Arquivo do dashboard de corretores não encontrado: ' . $dashboard_file);
-    }
-});
-
-// Registrar scripts do dashboard de corretores
-add_action('wp_enqueue_scripts', function() {
-    if (is_page('meus-imoveis')) {
-        wp_enqueue_script('jquery');
-        wp_enqueue_script('react', 'https://unpkg.com/react@17/umd/react.production.min.js', array('jquery'), '17.0.0', true);
-        wp_enqueue_script('react-dom', 'https://unpkg.com/react-dom@17/umd/react-dom.production.min.js', array('react'), '17.0.0', true);
-        wp_enqueue_script('chart-js', 'https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js', array('jquery'), '3.7.1', true);
-        
-        // Carregar o script do dashboard
-        $dashboard_js = get_stylesheet_directory_uri() . '/inc/custom/broker/assets/js/broker-dashboard.js';
-        wp_enqueue_script('broker-dashboard', $dashboard_js, array('jquery', 'react', 'react-dom', 'chart-js'), wp_rand(), true);
-        
-        // Verificar se os scripts foram enfileirados corretamente
-        if (!wp_script_is('jquery', 'enqueued')) {
-            error_log('functions.php: jQuery não foi enfileirado corretamente');
-        }
-        if (!wp_script_is('react', 'enqueued')) {
-            error_log('functions.php: React não foi enfileirado corretamente');
-        }
-        if (!wp_script_is('react-dom', 'enqueued')) {
-            error_log('functions.php: ReactDOM não foi enfileirado corretamente');
-        }
-        if (!wp_script_is('chart-js', 'enqueued')) {
-            error_log('functions.php: Chart.js não foi enfileirado corretamente');
-        }
-        if (!wp_script_is('broker-dashboard', 'enqueued')) {
-            error_log('functions.php: Script do dashboard não foi enfileirado corretamente');
-        }
-    }
-});
-
-// Carregar arquivos necessários para o dashboard de corretores
-add_action('init', function() {
-    $files_to_load = array(
-        '/inc/custom/broker/shortcodes.php',
-        '/inc/custom/broker/dashboard.php'
-    );
-    
-    foreach ($files_to_load as $file) {
-        $file_path = get_stylesheet_directory() . $file;
-        if (file_exists($file_path)) {
-            error_log('Carregando arquivo: ' . $file_path);
-            require_once($file_path);
-        } else {
-            error_log('Arquivo não encontrado: ' . $file_path);
-        }
-    }
-});
-
-// Garantir que os scripts necessários sejam carregados
-add_action('wp_enqueue_scripts', function() {
-    if (is_page('meus-imoveis') || has_shortcode(get_post()->post_content, 'broker_dashboard')) {
-        error_log('Página de imóveis do corretor detectada, carregando scripts...');
-        
-        wp_enqueue_script('jquery');
-        wp_enqueue_script('react', 'https://unpkg.com/react@17/umd/react.production.min.js', array('jquery'), '17.0.0', true);
-        wp_enqueue_script('react-dom', 'https://unpkg.com/react-dom@17/umd/react-dom.production.min.js', array('react'), '17.0.0', true);
-        wp_enqueue_script('chart-js', 'https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js', array('jquery'), '3.7.1', true);
-        
-        // Carregar Font Awesome
-        wp_enqueue_style('font-awesome', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css', array(), '5.15.3');
-        
-        // Carregar estilos do dashboard
-        wp_enqueue_style('broker-dashboard', get_stylesheet_directory_uri() . '/inc/custom/broker/assets/css/broker-dashboard.css', array(), wp_rand());
-        
-        // Carregar o script do dashboard
-        $dashboard_js = get_stylesheet_directory_uri() . '/inc/custom/broker/assets/js/broker-dashboard.js';
-        wp_enqueue_script('broker-dashboard', $dashboard_js, array('jquery', 'react', 'react-dom', 'chart-js'), wp_rand(), true);
-        
-        // Verificar se os scripts foram enfileirados corretamente
-        $scripts_status = array();
-        $scripts_status['jquery'] = wp_script_is('jquery', 'enqueued');
-        $scripts_status['react'] = wp_script_is('react', 'enqueued');
-        $scripts_status['react_dom'] = wp_script_is('react-dom', 'enqueued');
-        $scripts_status['chart_js'] = wp_script_is('chart-js', 'enqueued');
-        $scripts_status['broker_dashboard'] = wp_script_is('broker-dashboard', 'enqueued');
-        
-        error_log('Status dos scripts: ' . json_encode($scripts_status));
-        
-        // Adicionar variáveis necessárias para o script
-        wp_localize_script('broker-dashboard', 'site', array(
+    // Passar dados do usuário logado para o script
+    if (is_user_logged_in()) {
+        $current_user = wp_get_current_user();
+        $user_data = array(
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('ajax_nonce'),
-            'theme_url' => get_stylesheet_directory_uri(),
-            'debug' => WP_DEBUG,
-            'scripts_loaded' => $scripts_status
-        ));
-    }
-});
-
-// Evitar que o sponsored-carousel.php seja carregado durante chamadas AJAX
-function disable_sponsored_carousel_on_ajax() {
-    if (defined('DOING_AJAX') && DOING_AJAX) {
-        remove_action('wp_enqueue_scripts', 'enqueue_sponsored_carousel_scripts');
-        remove_shortcode('sponsored_carousel');
-    }
-}
-add_action('init', 'disable_sponsored_carousel_on_ajax', 1);
-
-// Carregar sistema de pagamento
-require_once get_stylesheet_directory() . '/inc/custom/broker/payment-loader.php';
-
-// Personalizar mensagens de erro do login
-function custom_login_error_messages($error) {
-    global $errors;
-    
-    if (isset($errors) && is_wp_error($errors)) {
-        foreach ($errors->get_error_codes() as $code) {
-            switch ($code) {
-                case 'invalid_username':
-                case 'invalid_email':
-                case 'incorrect_password':
-                    return 'E-mail ou senha incorretos.';
-                case 'empty_username':
-                    return 'Por favor, informe seu e-mail.';
-                case 'empty_password':
-                    return 'Por favor, informe sua senha.';
-            }
-        }
-    }
-    return $error;
-}
-add_filter('login_errors', 'custom_login_error_messages');
-
-// Redirecionar após login bem-sucedido
-function custom_login_redirect($redirect_to, $request, $user) {
-    if (isset($user->roles) && is_array($user->roles)) {
-        if (in_array('administrator', $user->roles)) {
-            return admin_url();
-        } else {
-            $redirect = isset($_GET['redirect_to']) ? $_GET['redirect_to'] : home_url();
-            return $redirect;
-        }
-    }
-    return $redirect_to;
-}
-add_filter('login_redirect', 'custom_login_redirect', 10, 3);
-
-// Personalizar URL de login
-function custom_login_url($login_url, $redirect = '', $force_reauth = false) {
-    $login_page = get_page_by_path('login');
-    if ($login_page) {
-        $login_url = get_permalink($login_page->ID);
-        if (!empty($redirect)) {
-            $login_url = add_query_arg('redirect_to', urlencode($redirect), $login_url);
-        }
-        if ($force_reauth) {
-            $login_url = add_query_arg('reauth', '1', $login_url);
-        }
-    }
-    return $login_url;
-}
-add_filter('login_url', 'custom_login_url', 10, 3);
-
-// Personalizar URL de registro
-function custom_register_url($register_url) {
-    $register_page = get_page_by_path('cadastro-corretor');
-    if ($register_page) {
-        return get_permalink($register_page->ID);
-    }
-    return $register_url;
-}
-add_filter('register_url', 'custom_register_url');
-
-// Personalizar URL de recuperação de senha
-function custom_lostpassword_url($lostpassword_url, $redirect = '') {
-    $lostpassword_page = get_page_by_path('recuperar-senha');
-    if ($lostpassword_page) {
-        $url = get_permalink($lostpassword_page->ID);
-        if (!empty($redirect)) {
-            $url = add_query_arg('redirect_to', urlencode($redirect), $url);
-        }
-        return $url;
-    }
-    return $lostpassword_url;
-}
-add_filter('lostpassword_url', 'custom_lostpassword_url', 10, 2);
-
-// Adicionar classes ao formulário de login
-function custom_login_form_classes($classes) {
-    $classes[] = 'login-form';
-    $classes[] = 'needs-validation';
-    return $classes;
-}
-add_filter('login_form_classes', 'custom_login_form_classes');
-
-// Personalizar campos do formulário de login
-function custom_login_form_fields($fields) {
-    $fields['user_login'] = str_replace(
-        'type="text"',
-        'type="email" required placeholder="Seu e-mail"',
-        $fields['user_login']
-    );
-    
-    $fields['user_pass'] = str_replace(
-        'type="password"',
-        'type="password" required placeholder="Sua senha"',
-        $fields['user_pass']
-    );
-    
-    return $fields;
-}
-add_filter('login_form_fields', 'custom_login_form_fields');
-
-// Registrar tentativas de login
-function log_login_attempts($user_login) {
-    $log_file = ABSPATH . 'wp-content/login-attempts.log';
-    $ip = $_SERVER['REMOTE_ADDR'];
-    $date = current_time('mysql');
-    $log_message = sprintf("[%s] Tentativa de login para usuário '%s' do IP %s\n", $date, $user_login, $ip);
-    error_log($log_message, 3, $log_file);
-}
-add_action('wp_login_failed', 'log_login_attempts');
-
-// Limitar tentativas de login
-function limit_login_attempts($user, $username, $password) {
-    if (empty($username)) return $user;
-    
-    $ip = $_SERVER['REMOTE_ADDR'];
-    $transient_key = 'login_attempts_' . $ip;
-    $attempts = get_transient($transient_key);
-    
-    if ($attempts === false) {
-        $attempts = 0;
-    }
-    
-    if ($attempts >= 5) {
-        return new WP_Error('too_many_attempts', 
-            'Muitas tentativas de login. Por favor, tente novamente em 15 minutos.');
-    }
-    
-    if (is_wp_error($user)) {
-        $attempts++;
-        set_transient($transient_key, $attempts, 900); // 15 minutos
-    }
-    
-    return $user;
-}
-add_filter('authenticate', 'limit_login_attempts', 30, 3);
-
-// Notificar admin sobre login suspeito
-function notify_suspicious_login($user_login, $user) {
-    $ip = $_SERVER['REMOTE_ADDR'];
-    $admin_email = get_option('admin_email');
-    $site_name = get_bloginfo('name');
-    
-    $unusual_location = false; // Implementar verificação de localização aqui
-    $unusual_time = (int)current_time('G') < 6 || (int)current_time('G') > 22;
-    
-    if ($unusual_location || $unusual_time) {
-        $subject = sprintf('[%s] Login Suspeito Detectado', $site_name);
-        $message = sprintf(
-            'Um login suspeito foi detectado:\n\nUsuário: %s\nIP: %s\nData/Hora: %s\n\nVerifique se esta atividade é legítima.',
-            $user_login,
-            $ip,
-            current_time('mysql')
+            'user_display_name' => $current_user->display_name,
+            'user_firstname' => $current_user->first_name,
+            'user_email' => $current_user->user_email,
+            'user_phone' => get_user_meta($current_user->ID, 'phone', true),
+            'user_whatsapp' => get_user_meta($current_user->ID, 'whatsapp', true)
         );
         
-        wp_mail($admin_email, $subject, $message);
+        // Localizar diretamente o script js-forms
+        wp_localize_script('js-forms', 'site', $user_data);
     }
 }
-add_action('wp_login', 'notify_suspicious_login', 10, 2);
+add_action('wp_enqueue_scripts', 'enqueue_custom_forms_assets', 20); // Prioridade mais alta para garantir que seja executado após scripts_so_casa_top 
+
+/**
+ * Função AJAX para obter dados do corretor
+ */
+function get_corretor_data() {
+    check_ajax_referer('ajax_nonce', 'nonce');
+    
+    if (!is_user_logged_in()) {
+        wp_send_json_error('Usuário não está logado');
+        return;
+    }
+    
+    $user_id = get_current_user_id();
+    $user = get_userdata($user_id);
+    
+    // Obter dados do telefone e whatsapp
+    $phone = get_user_meta($user_id, 'phone', true);
+    $whatsapp = get_user_meta($user_id, 'whatsapp', true);
+    
+    // Usar o primeiro número de telefone válido disponível
+    $telefone = '';
+    if (!empty($phone)) {
+        $telefone = preg_replace('/[^0-9]/', '', $phone);
+    } else if (!empty($whatsapp)) {
+        $telefone = preg_replace('/[^0-9]/', '', $whatsapp);
+    }
+    
+    // Dados para retornar
+    $dados_corretor = array(
+        'nome' => $user->display_name,
+        'email' => $user->user_email,
+        'telefone' => $telefone,
+        'user_id' => $user_id,
+        // Incluir todos os dados para debug
+        'raw_phone' => $phone,
+        'raw_whatsapp' => $whatsapp,
+        'first_name' => $user->first_name,
+        'last_name' => $user->last_name
+    );
+    
+    wp_send_json_success($dados_corretor);
+}
+add_action('wp_ajax_get_corretor_data', 'get_corretor_data'); 

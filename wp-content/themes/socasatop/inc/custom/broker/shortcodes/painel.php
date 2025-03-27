@@ -155,7 +155,7 @@ function display_broker_immobiles() {
                             <h3><?php the_title(); ?></h3>
                             <p class="immobile-location"><?php echo esc_html($location); ?></p>
                             <p class="immobile-type"><?php echo esc_html($property_type); ?></p>
-                            <p class="immobile-price">R$ <?php echo number_format($amount, 2, ',', '.'); ?></p>
+                            <p class="immobile-price">R$ <?php echo number_format(floatval($amount), 2, ',', '.'); ?></p>
                             <?php if ($is_paused) : ?>
                                 <span class="status-badge paused">Pausado</span>
                             <?php else : ?>
@@ -380,8 +380,10 @@ function display_broker_immobiles() {
             }
             </style>
         <?php else : ?>
-            <p>Você ainda não possui imóveis cadastrados.</p>
-            <a href="/adicionar-imoveis" class="add-immobile-button">Adicionar Novo Imóvel</a>
+            <div class="no-immobiles">
+                <p>Você ainda não tem imóveis cadastrados.</p>
+                <a href="/corretores/novo-imovel/" class="add-immobile-button">Adicionar Imóvel</a>
+            </div>
         <?php endif; ?>
     </div>
     <?php
