@@ -23,18 +23,52 @@ function immobile_post()
         'show_ui' => true,
         'show_in_menu' => true,
         'query_var' => true,
-        'rewrite' => array('slug' => 'imovel'),
+        'rewrite' => array(
+            'slug' => 'imovel',
+            'with_front' => true,
+            'pages' => true,
+            'feeds' => true,
+        ),
         'capability_type' => 'post',
-        'has_archive' => true,
+        'has_archive' => 'imoveis',
         'hierarchical' => false,
         'menu_position' => 5,
         'menu_icon' => 'dashicons-admin-home',
-        'supports' => array('title')
+        'supports' => array('title', 'editor', 'thumbnail', 'excerpt', 'custom-fields'),
+        'show_in_rest' => true
     );
 
     register_post_type('immobile', $args);
 }
 add_action('init', 'immobile_post');
+
+/**
+ * Força a atualização das regras de rewrite do WordPress
+ * Deve ser chamado apenas quando necessário
+ */
+function immobile_rewrite_flush() {
+    // Primeiro, registre o tipo de post
+    immobile_post();
+    
+    // Depois atualize as regras de rewrite
+    flush_rewrite_rules();
+}
+
+// Registrar a função para ser executada quando o plugin/tema for ativado
+if (isset($_GET['action']) && $_GET['action'] === 'activate-plugin') {
+    immobile_rewrite_flush();
+}
+
+// Adicionar uma opção para forçar a atualização das regras via URL (apenas para administradores)
+function maybe_flush_rules() {
+    if (current_user_can('administrator') && isset($_GET['flush_rules']) && $_GET['flush_rules'] === '1') {
+        flush_rewrite_rules();
+        add_action('admin_notices', function() {
+            echo '<div class="notice notice-success"><p>Regras de URL atualizadas com sucesso!</p></div>';
+        });
+    }
+}
+add_action('admin_init', 'maybe_flush_rules');
 
 function display_form_immobile()
 {
@@ -534,12 +568,113 @@ add_shortcode('immobile_profile', 'display_immobile_template');
 
 function immobile_template_include($template) {
     if (is_singular('immobile')) {
-        $new_template = locate_template(array('single-immobile.php'));
-        if ('' != $new_template) {
-            return $new_template;
+        // Localizar o template no tema filho primeiro
+        $child_template = get_stylesheet_directory() . '/inc/custom/immobile/templates/single-immobile.php';
+        
+        if (file_exists($child_template)) {
+            return $child_template;
         }
-        return plugin_dir_path(__FILE__) . 'templates/single-immobile.php';
+        
+        // Se não encontrar no tema filho, procurar no tema pai
+        $parent_template = get_template_directory() . '/inc/custom/immobile/templates/single-immobile.php';
+        
+        if (file_exists($parent_template)) {
+            return $parent_template;
+        }
+        
+        // Se não encontrar, usar o template padrão
+        return $template;
     }
     return $template;
 }
-add_filter('template_include', 'immobile_template_include');
+add_filter('template_include', 'immobile_template_include', 99);
+
+// Garantir que os scripts e estilos necessários sejam carregados
+function immobile_enqueue_scripts() {
+    if (is_singular('immobile')) {
+        // Carregamento de bibliotecas essenciais
+        wp_enqueue_style('swiper', 'https://unpkg.com/swiper/swiper-bundle.min.css');
+        wp_enqueue_script('swiper', 'https://unpkg.com/swiper/swiper-bundle.min.js', array(), null, true);
+        
+        // Carregar nossos estilos e scripts específicos
+        wp_enqueue_style('immobile-styles', get_stylesheet_directory_uri() . '/assets/immobile.css', array(), '1.0.2');
+        wp_enqueue_script('immobile-scripts', get_stylesheet_directory_uri() . '/assets/immobile.js', array('jquery', 'swiper'), '1.0.2', true);
+        
+        // Adicionar estilos inline para garantir que o conteúdo seja exibido corretamente
+        wp_add_inline_style('immobile-styles', '
+            .immobile-content {
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+            }
+            
+            .tab-buttons {
+                display: flex;
+                border-bottom: 1px solid #e1e1e1;
+            }
+            
+            .tab-button {
+                padding: 15px 30px;
+                background: none;
+                border: none;
+                cursor: pointer;
+                font-weight: 500;
+                color: #666;
+            }
+            
+            .tab-button.active {
+                color: #000066;
+                border-bottom: 2px solid #000066;
+            }
+            
+            .tab-panel {
+                display: none;
+                padding: 20px;
+            }
+            
+            .tab-panel.active {
+                display: block;
+            }
+        ');
+        
+        // Script inline para tabs e interações
+        wp_add_inline_script('immobile-scripts', '
+            jQuery(document).ready(function($) {
+                // Tabs functionality
+                $(".tab-button").click(function() {
+                    $(".tab-button").removeClass("active");
+                    $(this).addClass("active");
+                    
+                    var tabId = $(this).data("tab");
+                    $(".tab-panel").removeClass("active");
+                    $("#" + tabId).addClass("active");
+                });
+                
+                // Contact form functionality
+                $(".contact-btn").click(function() {
+                    var brokerId = $(this).data("broker");
+                    var immobileId = $(this).data("immobile");
+                    
+                    // Mostrar formulário de contato ou informações do corretor
+                    // Implementação específica será adicionada conforme necessário
+                });
+            });
+        ');
+    }
+}
+add_action('wp_enqueue_scripts', 'immobile_enqueue_scripts');
+
+// Adicionar suporte ao Elementor
+function immobile_add_elementor_support() {
+    add_post_type_support('immobile', 'elementor');
+}
+add_action('init', 'immobile_add_elementor_support', 15);
+
+// Garantir que o conteúdo seja exibido mesmo com o Elementor
+function immobile_elementor_content($content) {
+    if (is_singular('immobile')) {
+        return display_immobile_template();
+    }
+    return $content;
+}
+add_filter('the_content', 'immobile_elementor_content', 20);

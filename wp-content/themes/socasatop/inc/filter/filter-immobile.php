@@ -90,7 +90,15 @@ $immobile = new WP_Query($args);
         <?php
         while ($immobile->have_posts()) {
             $immobile->the_post();
-            echo do_shortcode('[elementor-template id="1435"]');
+            
+            // Verificar se existe um template específico no Elementor pelo ID
+            $template_id = 1435; // ID do template do Elementor
+            
+            if (function_exists('elementor_theme_do_location') && has_action('elementor/theme/archive')) {
+                do_action('elementor/theme/archive');
+            } else {
+                echo do_shortcode('[elementor-template id="' . $template_id . '"]');
+            }
         }
         ?>
     </div>

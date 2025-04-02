@@ -13,16 +13,36 @@ function scripts_so_casa_top()
 
     wp_register_style('select2', 'https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css', array(), '2.4.1', 'all');
     wp_enqueue_style('select2');
+    
+    // Adicionar estilo para formulários popup
+    wp_register_style('forms-style', get_stylesheet_directory_uri() . '/assets/forms-style.css', array(), '1.0.0', 'all');
+    wp_enqueue_style('forms-style');
 
     wp_enqueue_script('select2', 'https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js', array('jquery'), '2.4.1', true);
     wp_enqueue_script('so-casa-top', get_stylesheet_directory_uri() . '/assets/socasatop.js', array('jquery'), '1.0.0', true);
+    
+    // Adicionar script para formulários popup
+    wp_enqueue_script('js-forms', get_stylesheet_directory_uri() . '/assets/js-forms.js', array('jquery'), '1.0.0', true);
 
     $options = [
         'ajax_url' => admin_url('admin-ajax.php'),
         'nonce' => wp_create_nonce('ajax_nonce')
     ];
+    
+    // Adicionar dados do usuário atual ao script
+    $current_user = wp_get_current_user();
+    $user_meta = get_user_meta($current_user->ID);
+    
+    $user_data = array(
+        'user_firstname' => !empty($current_user->first_name) ? $current_user->first_name : '',
+        'user_email' => !empty($current_user->user_email) ? $current_user->user_email : '',
+        'user_phone' => !empty($user_meta['phone'][0]) ? $user_meta['phone'][0] : '',
+    );
+    
+    $options = array_merge($options, $user_data);
 
     wp_localize_script('so-casa-top', 'site', $options);
+    wp_localize_script('js-forms', 'site', $options);
 }
 add_action('wp_enqueue_scripts', 'scripts_so_casa_top', 5);
 
@@ -2017,4 +2037,50 @@ function display_test_whatsapp_page() {
   return wp_logout_url('https://socasatop.com.br');
 }
 add_shortcode('logout_link', 'custom_logout_url');
+
+function load_custom_shortcodes() {
+    // Verificar se os diretórios necessários existem e criá-los se não existirem
+    $dirs = array(
+        get_stylesheet_directory() . '/inc/custom/broker/assets',
+        get_stylesheet_directory() . '/inc/custom/broker/assets/js',
+        get_stylesheet_directory() . '/inc/custom/broker/assets/css',
+    );
+    
+    foreach ($dirs as $dir) {
+        if (!file_exists($dir)) {
+            wp_mkdir_p($dir);
+        }
+    }
+    
+    // Arquivos necessários para o sistema de pagamento
+    $files_to_include = array(
+        '/inc/custom/broker/payment-product.php',
+        '/inc/custom/broker/payment-unified.php',
+        '/inc/custom/broker/payment-settings.php',
+        '/inc/custom/broker/highlight-payment.php',
+        '/inc/custom/broker/property-form.php',
+        '/inc/custom/broker/shortcodes.php',
+        '/inc/custom/immobile/mercadopago.php',
+    );
+    
+    // Incluir apenas os arquivos que existem
+    foreach ($files_to_include as $file) {
+        $file_path = get_stylesheet_directory() . $file;
+        if (file_exists($file_path)) {
+            include_once($file_path);
+        } else {
+            error_log('Arquivo não encontrado: ' . $file_path);
+        }
+    }
+    
+    // Carregar estilos de pagamento apenas se o arquivo existir
+    $payment_styles_path = get_stylesheet_directory() . '/inc/custom/broker/assets/css/payment-styles.css';
+    if (file_exists($payment_styles_path)) {
+        $payment_styles_url = get_stylesheet_directory_uri() . '/inc/custom/broker/assets/css/payment-styles.css';
+        $payment_styles_version = filemtime($payment_styles_path);
+        wp_register_style('payment-styles', $payment_styles_url, array(), $payment_styles_version);
+        wp_enqueue_style('payment-styles');
+    }
+}
+add_action('init', 'load_custom_shortcodes', 5);
 

@@ -135,8 +135,6 @@ include_once "inc/custom/broker/post.php";
 include_once "inc/custom/location/taxonomy.php";
 include_once "inc/custom/view-immobile/post.php";
 include_once "inc/custom/search-ai/post.php";
-include_once "inc/custom/broker/register.php";
-include_once "inc/custom/avisos/post.php";
 
 include_once "inc/filter/settings.php";
 include_once "inc/ajax.php";
@@ -964,4 +962,64 @@ function get_corretor_data() {
     
     wp_send_json_success($dados_corretor);
 }
-add_action('wp_ajax_get_corretor_data', 'get_corretor_data'); 
+add_action('wp_ajax_get_corretor_data', 'get_corretor_data');
+
+/**
+ * Garantir que scripts e estilos de imóveis sejam carregados em todas as páginas relacionadas
+ */
+function load_immobile_assets() {
+    // Verificar se estamos em qualquer página relacionada a imóveis
+    if (is_singular('immobile') || is_post_type_archive('immobile') || 
+        is_singular('listaimoveis') || is_tax('location') ||
+        strpos($_SERVER['REQUEST_URI'], '/imovel/') !== false || 
+        strpos($_SERVER['REQUEST_URI'], '/listaimoveis/') !== false) {
+        
+        // Bibliotecas essenciais
+        wp_enqueue_style('swiper', 'https://unpkg.com/swiper/swiper-bundle.min.css');
+        wp_enqueue_script('swiper', 'https://unpkg.com/swiper/swiper-bundle.min.js', array('jquery'), null, true);
+        
+        // Fontawesome para ícones
+        wp_enqueue_style('font-awesome', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css');
+        
+        // Nossos arquivos específicos
+        wp_enqueue_style('immobile-styles', get_stylesheet_directory_uri() . '/assets/immobile.css', array(), '1.0.3');
+        wp_enqueue_script('immobile-scripts', get_stylesheet_directory_uri() . '/assets/immobile.js', array('jquery', 'swiper'), '1.0.3', true);
+    }
+}
+add_action('wp_enqueue_scripts', 'load_immobile_assets', 20);
+
+/**
+ * Função para depuração de templates usados
+ */
+function debug_template_used() {
+    if (current_user_can('administrator') && isset($_GET['debug_template'])) {
+        global $template;
+        echo '<div style="position: fixed; bottom: 10px; right: 10px; z-index: 9999; background: rgba(0,0,0,0.8); color: #fff; padding: 10px; border-radius: 5px; font-family: monospace;">
+            Template: ' . str_replace(ABSPATH, '', $template) . '
+        </div>';
+    }
+}
+add_action('wp_footer', 'debug_template_used');
+
+/**
+ * Registrar locais de template do Elementor Theme Builder
+ */
+function register_elementor_locations($elementor_theme_manager) {
+    $elementor_theme_manager->register_all_core_location();
+    $elementor_theme_manager->register_location('archive');
+}
+add_action('elementor/theme/register_locations', 'register_elementor_locations');
+
+/**
+ * Adicionar suporte ao Elementor para todos os tipos de post personalizados
+ */
+function add_elementor_support_for_all_cpts() {
+    $post_types = ['immobile', 'imovel', 'listaimoveis', 'lead'];
+    
+    foreach ($post_types as $post_type) {
+        if (post_type_exists($post_type)) {
+            add_post_type_support($post_type, 'elementor');
+        }
+    }
+}
+add_action('init', 'add_elementor_support_for_all_cpts', 20);
